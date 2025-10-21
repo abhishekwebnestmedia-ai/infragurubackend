@@ -1,7 +1,7 @@
 
 const cron = require("node-cron");
 const Lead = require("../models/leadModel");
-const Inventory = require("../models/inventryModel");
+// const Inventory = require("../models/inventryModel");
 const Notification = require("../models/notification");
 
 // ✅ Convert JS Date → IST string ("YYYY-MM-DD HH:mm:ss")
@@ -67,47 +67,47 @@ cron.schedule("* * * * *", async () => {
     }
 
     // ----------------- INVENTORIES -----------------
-    const inventories = await Inventory.find({
-      followUpDate: { $gte: startStr, $lte: endStr }
-    });
+    // const inventories = await Inventory.find({
+    //   followUpDate: { $gte: startStr, $lte: endStr }
+    // });
 
-    for (const inv of inventories) {
-      const msg = ` Reminder: Follow up with ${inv.sellerName} (${inv.contactNumbers?.[0] || "N/A"}) at ${new Date(inv.followUpDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}. Property in sector ${inv.sector || "N/A"} — Demand: ${inv.demand || "N/A"}.`;
+    // for (const inv of inventories) {
+    //   const msg = ` Reminder: Follow up with ${inv.sellerName} (${inv.contactNumbers?.[0] || "N/A"}) at ${new Date(inv.followUpDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}. Property in sector ${inv.sector || "N/A"} — Demand: ${inv.demand || "N/A"}.`;
 
-      // 🔹 Prevent duplicates created within last 2 mins
-      const exists = await Notification.findOne({
-        type: "Inventory",
-        itemId: inv._id,
-        message: msg,
-        createdAt: { $gte: new Date(Date.now() - 2 * 60 * 1000) }
-      });
+    //   // 🔹 Prevent duplicates created within last 2 mins
+    //   const exists = await Notification.findOne({
+    //     type: "Inventory",
+    //     itemId: inv._id,
+    //     message: msg,
+    //     createdAt: { $gte: new Date(Date.now() - 2 * 60 * 1000) }
+    //   });
 
-      if (exists) {
-        console.log(` Skipped duplicate inventory notification for ${inv.sellerName}`);
-        continue;
-      }
+    //   if (exists) {
+    //     console.log(` Skipped duplicate inventory notification for ${inv.sellerName}`);
+    //     continue;
+    //   }
 
-      try {
-        await Notification.create({ type: "Inventory", itemId: inv._id, message: msg });
-        console.log(` Inventory notification created for ${inv.sellerName}`);
+    //   try {
+    //     await Notification.create({ type: "Inventory", itemId: inv._id, message: msg });
+    //     console.log(` Inventory notification created for ${inv.sellerName}`);
 
-        if (global.io) {
-          global.io.emit("followup_notification", {
-            type: "Inventory",
-            inventoryId: inv._id,
-            message: msg,
-          });
-        }
-      } catch (err) {
-        if (err.code === 11000) {
-          console.log(` Duplicate inventory notification blocked by DB: ${inv.sellerName}`);
-        } else {
-          console.error(" Inventory notification error:", err);
-        }
-      }
-    }
+    //     if (global.io) {
+    //       global.io.emit("followup_notification", {
+    //         type: "Inventory",
+    //         inventoryId: inv._id,
+    //         message: msg,
+    //       });
+    //     }
+    //   } catch (err) {
+    //     if (err.code === 11000) {
+    //       console.log(` Duplicate inventory notification blocked by DB: ${inv.sellerName}`);
+    //     } else {
+    //       console.error(" Inventory notification error:", err);
+    //     }
+    //   }
+    // }
 
-    if (!leads.length && !inventories.length) {
+    if (!leads.length ) {
       console.log(" No follow-ups this minute.");
     }
   } catch (err) {

@@ -14,9 +14,6 @@ connectDB();
 
 const app = express();
 
-// ----------------------------------------
-// ✅ CORS Configuration
-// ----------------------------------------
 const allowedOrigins = [
  
   'https://crm.infraguru.in',
@@ -25,7 +22,7 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // allow server-to-server or curl
+    if (!origin) return callback(null, true); 
     if (allowedOrigins.indexOf(origin) === -1) {
       const msg = 'The CORS policy does not allow access from the specified Origin.';
       return callback(new Error(msg), false);
@@ -38,32 +35,30 @@ app.use(cors({
 app.use(express.json());
 app.use(morgan('dev'));
 
-// ----------------------------------------
-// ✅ Routes
-// ----------------------------------------
-app.use('/api/auth', require('./routes/authroutes'));
 
-// ----------------------------------------
-// ✅ Root Route
-// ----------------------------------------
+app.use('/api/auth', require('./routes/authroutes'));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/api/groups", require("./routes/grouproute"));
+app.use("/api/broadcasts", require("./routes/broadcastroute"));
+app.use("/api/notifications", require("./routes/notificationRoutes"));
+app.use('/api/realtleads', require('./routes/leadroute'));
+
 app.get('/', (req, res) => {
   res.send('CRM backend server is running 🚀');
 });
 
-// ----------------------------------------
-// ✅ SOCKET.IO SETUP
-// ----------------------------------------
+
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*", // for now allow all; tighten later
+    origin: "*", 
     methods: ["GET", "POST"],
   },
 });
 
 app.set("io", io);
-global.io = io; // ✅ allows emits from other files (like cron or controllers)
+global.io = io;
 
 io.on("connection", (socket) => {
   console.log("✅ Socket connected:", socket.id);
@@ -73,14 +68,10 @@ io.on("connection", (socket) => {
   });
 });
 
-// ----------------------------------------
-// ✅ FOLLOW-UP CRON SERVICE (import AFTER io is ready)
-// ----------------------------------------
+
 require("./services/followupCronService");
 
-// ----------------------------------------
-// ✅ TEST SOCKET ENDPOINT (for manual verification)
-// ----------------------------------------
+
 app.get("/test-socket", (req, res) => {
   if (global.io) {
     console.log("📢 Manual test emit triggered");
@@ -94,9 +85,7 @@ app.get("/test-socket", (req, res) => {
   }
 });
 
-// ----------------------------------------
-// ✅ START SERVER
-// ----------------------------------------
+
 const PORT = process.env.PORT || 5000;
 server
   .listen(PORT, () => {
