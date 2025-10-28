@@ -18,7 +18,7 @@ const allowedOrigins = [
  
   'https://crm.infraguru.in',
   'http://localhost:3000',
-  'http://72.60.218.68:5000'
+
 ];
 
 app.use(cors({
@@ -111,4 +111,3 @@ server
 
 
 
-  
