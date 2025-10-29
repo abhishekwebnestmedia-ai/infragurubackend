@@ -52,10 +52,10 @@ global.io = io;
 
 // --- Socket.IO events ---
 io.on("connection", (socket) => {
-  console.log("✅ Socket connected:", socket.id);
+  console.log(" Socket connected:", socket.id);
 
   socket.on("disconnect", () => {
-    console.log("❌ Socket disconnected:", socket.id);
+    console.log(" Socket disconnected:", socket.id);
   });
 });
 
@@ -65,7 +65,7 @@ require("./services/followupCronService");
 // --- Test socket endpoint ---
 app.get("/test-socket", (req, res) => {
   if (global.io) {
-    console.log("📢 Manual test emit triggered");
+    console.log(" Manual test emit triggered");
     global.io.emit("followup_notification", {
       type: "Test",
       message: "Manual test notification from /test-socket endpoint",
@@ -79,12 +79,12 @@ app.get("/test-socket", (req, res) => {
 // --- Start server ---
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(` Server running on port ${PORT}`);
 }).on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.log(`⚠️ Port ${PORT} is in use, trying ${PORT + 1}...`);
+    console.log(` Port ${PORT} is in use, trying ${PORT + 1}...`);
     server.listen(PORT + 1);
   } else {
-    console.error('❌ Server error:', err);
+    console.error(' Server error:', err);
   }
 });
