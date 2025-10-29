@@ -1,5 +1,3 @@
-
-
 const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
@@ -14,28 +12,20 @@ connectDB();
 
 const app = express();
 
-const allowedOrigins = [
- 
-  'https://crm.infraguru.in',
-  'http://localhost:3000',
-
-];
-
 console.log('MONGO_URI:', process.env.MONGO_URI);
 
-
+// --- CORS: allow anyone ---
 app.use(cors({
-  origin: "*",
-  credentials: true,
+  origin: "*",       // allow requests from any domain
+  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: false // cannot be true with origin "*"
 }));
-
-
-
 
 app.use(express.json());
 app.use(morgan('dev'));
 
-
+// --- Routes ---
 app.use('/api/auth', require('./routes/authroutes'));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/groups", require("./routes/grouproute"));
@@ -47,14 +37,14 @@ app.get('/', (req, res) => {
   res.send('CRM backend server is running 🚀');
 });
 
-
+// --- Create HTTP server & Socket.IO ---
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*", 
-    methods: ["GET", "POST"],
-  },
+    origin: "*",   // allow any domain
+    methods: ["GET", "POST"]
+  }
 });
 
 app.set("io", io);
@@ -68,10 +58,10 @@ io.on("connection", (socket) => {
   });
 });
 
-
+// --- Cron service ---
 require("./services/followupCronService");
 
-
+// --- Test socket endpoint ---
 app.get("/test-socket", (req, res) => {
   if (global.io) {
     console.log("📢 Manual test emit triggered");
@@ -85,23 +75,15 @@ app.get("/test-socket", (req, res) => {
   }
 });
 
-
+// --- Start server ---
 const PORT = process.env.PORT || 5001;
-server
-  .listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-  })
-  .on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.log(`⚠️ Port ${PORT} is in use, trying ${PORT + 1}...`);
-      server.listen(PORT + 1);
-    } else {
-      console.error('❌ Server error:', err);
-    }
-  });
-
-
-
-
-
-
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+}).on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.log(`⚠️ Port ${PORT} is in use, trying ${PORT + 1}...`);
+    server.listen(PORT + 1);
+  } else {
+    console.error('❌ Server error:', err);
+  }
+});
