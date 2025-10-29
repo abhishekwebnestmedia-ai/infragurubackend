@@ -16,10 +16,10 @@ console.log('MONGO_URI:', process.env.MONGO_URI);
 
 // --- CORS: allow anyone ---
 app.use(cors({
-  origin: "*",       // allow requests from any domain
-  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: false // cannot be true with origin "*"
+  credentials: false
 }));
 
 app.use(express.json());
@@ -42,7 +42,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*",   // allow any domain
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
@@ -50,6 +50,7 @@ const io = new Server(server, {
 app.set("io", io);
 global.io = io;
 
+// --- Socket.IO events ---
 io.on("connection", (socket) => {
   console.log("✅ Socket connected:", socket.id);
 
@@ -87,10 +88,3 @@ server.listen(PORT, () => {
     console.error('❌ Server error:', err);
   }
 });
-
-
-
-
-
-
-
