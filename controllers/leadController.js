@@ -493,12 +493,14 @@
 
 
 
+
 const Lead = require('../models/leadModel');
+const User = require('../models/user');
+const mongoose = require("mongoose");
 const LeadHistory = require("../models/leadHistory");
 const Notification = require("../models/notification");
-const mongoose = require("mongoose");
 
-// ✅ Valid Enums (should match model)
+// ✅ Match model enums
 const validStatuses = [
   "Hot",
   "Not Connected",
@@ -509,69 +511,183 @@ const validStatuses = [
   "Completed"
 ];
 
-const validSources = [
-  "Meta",
-  "Google",
-  "Referral",
-  "Website",
-  "Walk-in",
-  "Other"
-];
-
-// ✅ Validators
+// 🔹 Helpers
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const isValidPhone = (phone) => /^\d{7,15}$/.test(phone);
 
-// ✅ Validate Lead Data
+// 🔹 Resolve assignedTo (can be ObjectId, name, or email)
+async function resolveAssignedTo(assignedTo) {
+  if (!assignedTo) return null;
+
+  if (mongoose.Types.ObjectId.isValid(assignedTo)) {
+    const user = await User.findById(assignedTo);
+    if (user) return user;
+  }
+
+  return await User.findOne({
+    $or: [{ name: assignedTo }, { email: assignedTo }]
+  });
+}
+
+// 🔹 Validate Lead Data
 function validateLeadData(data, isUpdate = false) {
   if (!isUpdate || data.clientName !== undefined) {
     if (!data.clientName || data.clientName.trim() === '') {
-      return "Client name is required";
+      return "Client Name is required";
     }
   }
   if (!isUpdate || data.contactNumber !== undefined) {
     if (!data.contactNumber || !isValidPhone(data.contactNumber)) {
-      return "Invalid or missing contact number";
+      return "Invalid or missing Contact Number";
     }
   }
   if (!isUpdate || data.email !== undefined) {
     if (!data.email || !isValidEmail(data.email)) {
-      return "Invalid or missing email";
+      return "Invalid or missing Email";
     }
   }
   if (!isUpdate || data.status !== undefined) {
     if (!data.status || !validStatuses.includes(data.status)) {
-      return "Invalid or missing status";
+      return "Invalid or missing Status";
     }
-  }
-  if (data.source && !validSources.includes(data.source)) {
-    return "Invalid lead source";
   }
   return null;
 }
 
-// ✅ Create Lead
+// 🔹 Create Lead
 exports.createLead = async (req, res) => {
   try {
     const errorMsg = validateLeadData(req.body);
-    if (errorMsg) {
-      return res.status(400).json({ success: false, message: errorMsg });
+    if (errorMsg) return res.status(400).json({ success: false, message: errorMsg });
+
+    const { assignedTo, ...leadData } = req.body;
+
+    // Check for duplicate
+    const existingLead = await Lead.findOne({
+      email: leadData.email,
+      contactNumber: leadData.contactNumber
+    });
+    if (existingLead) {
+      return res.status(400).json({ success: false, message: "Lead with same email & contact already exists" });
+    }
+
+    let user = null;
+    if (assignedTo) {
+      user = await resolveAssignedTo(assignedTo);
+      if (!user) return res.status(400).json({ success: false, message: "Invalid assignedTo user" });
     }
 
     const lead = new Lead({
-      ...req.body,
-      capturedBy: req.user?.name || req.body.capturedBy || "System",
+      ...leadData,
+      assignedTo: user ? user._id : null,
     });
 
     await lead.save();
     res.status(201).json({ success: true, data: lead });
   } catch (err) {
-    console.error("❌ createLead error:", err);
-    res.status(500).json({ success: false, message: "Server error creating lead" });
+    console.error("createLead error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// ✅ Get All Leads (filtered by role)
+// 🔹 Bulk Upload Leads
+exports.bulkUploadLeads = async (req, res) => {
+  try {
+    const leads = req.body.leads;
+    if (!Array.isArray(leads) || leads.length === 0) {
+      return res.status(400).json({ success: false, message: "No leads provided" });
+    }
+
+    const createdLeads = [];
+
+    for (const data of leads) {
+      const errorMsg = validateLeadData(data);
+      if (errorMsg) continue;
+
+      const { assignedTo, ...leadData } = data;
+      let user = null;
+      if (assignedTo) user = await resolveAssignedTo(assignedTo);
+
+      const newLead = new Lead({
+        ...leadData,
+        assignedTo: user ? user._id : null,
+      });
+
+      await newLead.save();
+      createdLeads.push(newLead);
+    }
+
+    res.status(201).json({
+      success: true,
+      count: createdLeads.length,
+      data: createdLeads,
+    });
+  } catch (err) {
+    console.error("bulkUploadLeads error:", err);
+    res.status(500).json({ success: false, message: "Error uploading leads" });
+  }
+};
+
+// 🔹 Assign/Reassign Lead
+exports.assignLead = async (req, res) => {
+  try {
+    const { assignedTo } = req.body;
+    if (!assignedTo) {
+      return res.status(400).json({ success: false, message: "assignedTo field is required" });
+    }
+
+    const user = await resolveAssignedTo(assignedTo);
+    if (!user) {
+      return res.status(400).json({ success: false, message: "Invalid assignedTo user" });
+    }
+
+    const lead = await Lead.findByIdAndUpdate(
+      req.params.id,
+      { assignedTo: user._id },
+      { new: true }
+    );
+
+    if (!lead) {
+      return res.status(404).json({ success: false, message: "Lead not found" });
+    }
+
+    res.json({ success: true, message: "Lead assigned successfully", data: lead });
+  } catch (err) {
+    console.error("assignLead error:", err);
+    res.status(500).json({ success: false, message: "Error assigning lead" });
+  }
+};
+
+// 🔹 Bulk Assign Leads
+exports.bulkAssignLeads = async (req, res) => {
+  try {
+    const { leadIds, assignedTo } = req.body;
+
+    if (!Array.isArray(leadIds) || leadIds.length === 0 || !assignedTo) {
+      return res.status(400).json({ success: false, message: "leadIds and assignedTo are required" });
+    }
+
+    const user = await resolveAssignedTo(assignedTo);
+    if (!user) {
+      return res.status(400).json({ success: false, message: "Invalid assignedTo user" });
+    }
+
+    const result = await Lead.updateMany(
+      { _id: { $in: leadIds } },
+      { $set: { assignedTo: user._id } }
+    );
+
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} leads assigned successfully to ${user.name}`,
+    });
+  } catch (err) {
+    console.error("bulkAssignLeads error:", err);
+    res.status(500).json({ success: false, message: "Error assigning leads" });
+  }
+};
+
+// 🔹 Get Leads (filtered by user role)
 exports.getLeads = async (req, res) => {
   try {
     if (!req.user || !req.user.name) {
@@ -582,13 +698,11 @@ exports.getLeads = async (req, res) => {
     const userName = req.user.name;
     let filter = {};
 
-    // Non-admins only see their transferred leads
     if (userRole !== "admin") {
       filter = { transferTo: userName };
     }
 
     const leads = await Lead.find(filter).sort({ createdAt: -1 });
-
     res.status(200).json({
       success: true,
       role: userRole,
@@ -596,12 +710,12 @@ exports.getLeads = async (req, res) => {
       data: leads,
     });
   } catch (err) {
-    console.error("❌ getLeads error:", err);
+    console.error("getLeads error:", err.message);
     res.status(500).json({ success: false, message: "Server error fetching leads" });
   }
 };
 
-// ✅ Update Lead
+// 🔹 Update Lead
 exports.updateLead = async (req, res) => {
   try {
     const { id } = req.params;
@@ -612,26 +726,32 @@ exports.updateLead = async (req, res) => {
       return res.status(404).json({ success: false, message: "Lead not found" });
     }
 
+    // ✅ Resolve assignedTo user if provided
+    if (updateData.assignedTo !== undefined) {
+      const user = await resolveAssignedTo(updateData.assignedTo);
+      if (!user) {
+        return res.status(400).json({ success: false, message: "Invalid assignedTo user" });
+      }
+      updateData.assignedTo = user._id;
+    }
+
     const updatedLead = await Lead.findByIdAndUpdate(id, updateData, { new: true });
 
-    // ✅ Track important field changes
-    const trackedFields = [
-      "status",
-      "assignedTo",
-      "transferTo",
-      "capturedBy",
-      "remark",
-      "followUp"
-    ];
+    const trackedFields = ["status", "assignedTo", "capturedBy", "transferTo", "remark", "followUp"];
 
-    const changedBy = req.user?.name || "System";
+    let changedBy = null;
+    if (req.user) {
+      const user = await User.findById(req.user._id).select("name email");
+      if (user) {
+        changedBy = { _id: user._id, name: user.name, email: user.email };
+      }
+    }
 
     for (const field of trackedFields) {
-      const oldValue = oldLead[field] || "";
-      const newValue = updatedLead[field] || "";
+      let oldValue = oldLead[field];
+      let newValue = updatedLead[field];
 
-      if (String(oldValue) !== String(newValue)) {
-        // History log
+      if (String(oldValue || "") !== String(newValue || "")) {
         await LeadHistory.create({
           leadId: id,
           changedBy,
@@ -640,14 +760,13 @@ exports.updateLead = async (req, res) => {
           newValue,
         });
 
-        // Notification
         try {
-          const msg = `🔄 Lead "${oldLead.clientName}" ${field} changed from "${oldValue || "N/A"}" → "${newValue || "N/A"}" by ${changedBy}`;
+          const msg = `🔄 Lead "${oldLead.clientName}" ${field} changed from ${oldValue || "N/A"} → ${newValue || "N/A"} by ${changedBy?.name || "System"}`;
           await Notification.create({
             type: "Lead",
             itemId: id,
             message: msg,
-            changedBy,
+            changedBy: changedBy?.name || "System",
           });
 
           if (global.io) {
@@ -655,7 +774,7 @@ exports.updateLead = async (req, res) => {
               type: "Lead",
               leadId: id,
               message: msg,
-              changedBy,
+              changedBy: changedBy?.name || "System",
             });
           }
         } catch (notifErr) {
@@ -666,15 +785,16 @@ exports.updateLead = async (req, res) => {
 
     res.json({ success: true, message: "Lead updated successfully", data: updatedLead });
   } catch (err) {
-    console.error("❌ updateLead error:", err);
+    console.error("updateLead error:", err);
     res.status(500).json({ success: false, message: "Error updating lead" });
   }
 };
 
-// ✅ Get Lead by ID
+// 🔹 Get Lead by ID
 exports.getLeadById = async (req, res) => {
   try {
     const { id } = req.params;
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: "Invalid lead ID" });
     }
@@ -684,103 +804,84 @@ exports.getLeadById = async (req, res) => {
       return res.status(404).json({ success: false, message: "Lead not found" });
     }
 
-    res.status(200).json({ success: true, data: lead });
+    res.json({ success: true, data: lead });
   } catch (err) {
-    console.error("❌ getLeadById error:", err);
+    console.error("getLeadById error:", err);
     res.status(500).json({ success: false, message: "Error fetching lead" });
   }
 };
 
-// ✅ Delete Lead
+// 🔹 Delete Lead
 exports.deleteLead = async (req, res) => {
   try {
     const lead = await Lead.findByIdAndDelete(req.params.id);
     if (!lead) {
       return res.status(404).json({ success: false, message: "Lead not found" });
     }
-    res.status(200).json({ success: true, message: "Lead deleted successfully" });
+    res.json({ success: true, message: "Lead deleted successfully" });
   } catch (err) {
-    console.error("❌ deleteLead error:", err);
+    console.error("deleteLead error:", err);
     res.status(500).json({ success: false, message: "Error deleting lead" });
   }
 };
 
-// ✅ Bulk Upload Leads
-exports.bulkUploadLeads = async (req, res) => {
+// 🔹 Get Leads by Assigned User Name
+exports.getLeadsByUserName = async (req, res) => {
   try {
-    const { leads } = req.body;
-
-    if (!Array.isArray(leads) || leads.length === 0) {
-      return res.status(400).json({ success: false, message: "Leads array is required" });
+    const { name } = req.query;
+    if (!name) {
+      return res.status(400).json({ success: false, message: "User name is required" });
     }
 
-    const validLeads = [];
-    for (const lead of leads) {
-      const errorMsg = validateLeadData(lead);
-      if (errorMsg) {
-        return res.status(400).json({ success: false, message: `Validation failed for ${lead.clientName || "Unknown"}: ${errorMsg}` });
-      }
-      validLeads.push({
-        ...lead,
-        capturedBy: req.user?.name || lead.capturedBy || "System",
-      });
+    const user = await User.findOne({ name });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    const insertedLeads = await Lead.insertMany(validLeads);
-    res.status(201).json({
-      success: true,
-      message: "Bulk upload successful",
-      insertedCount: insertedLeads.length,
-      insertedLeads,
-    });
+    const leads = await Lead.find({ assignedTo: user._id }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, count: leads.length, data: leads });
   } catch (err) {
-    console.error("❌ bulkUploadLeads error:", err);
-    res.status(500).json({ success: false, message: "Error during bulk upload" });
+    console.error("getLeadsByUserName error:", err);
+    res.status(500).json({ success: false, message: "Error fetching user-based leads" });
   }
 };
 
-// ✅ Get Leads by CapturedBy
+// 🔹 Get Leads by CapturedBy
 exports.getLeadsByCapturedBy = async (req, res) => {
   try {
-    const { capturedBy } = req.query;
-    if (!capturedBy) {
-      return res.status(400).json({ success: false, message: "capturedBy query parameter required" });
+    const { name } = req.query;
+    if (!name) {
+      return res.status(400).json({ success: false, message: "capturedBy (name) is required" });
     }
 
-    const filter = { capturedBy: { $regex: new RegExp(`^${capturedBy}$`, "i") } };
-    const leads = await Lead.find(filter).sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      capturedBy,
-      totalLeads: leads.length,
-      leads,
-    });
+    const leads = await Lead.find({ capturedBy: name }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, count: leads.length, data: leads });
   } catch (err) {
-    console.error("❌ getLeadsByCapturedBy error:", err);
-    res.status(500).json({ success: false, message: "Server error fetching leads by capturedBy" });
+    console.error("getLeadsByCapturedBy error:", err);
+    res.status(500).json({ success: false, message: "Error fetching captured leads" });
   }
 };
 
-// ✅ Lead History
+// 🔹 Get Lead Change History
 exports.getLeadChangeHistory = async (req, res) => {
   try {
     const { leadId } = req.params;
+
     if (!mongoose.Types.ObjectId.isValid(leadId)) {
       return res.status(400).json({ success: false, message: "Invalid lead ID" });
     }
 
-    const history = await LeadHistory.find({ leadId }).sort({ changedAt: -1 });
-    res.status(200).json({ success: true, totalChanges: history.length, data: history });
+    const history = await LeadHistory.find({ leadId })
+      .sort({ createdAt: -1 })
+      .populate("changedBy._id", "name email");
+
+    res.status(200).json({
+      success: true,
+      count: history.length,
+      data: history,
+    });
   } catch (err) {
-    console.error("❌ getLeadChangeHistory error:", err);
-    res.status(500).json({ success: false, message: "Error fetching lead change history" });
+    console.error("getLeadChangeHistory error:", err);
+    res.status(500).json({ success: false, message: "Error fetching lead history" });
   }
 };
-
-
-
-
-
-
-
