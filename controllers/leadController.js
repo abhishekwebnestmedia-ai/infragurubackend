@@ -517,13 +517,11 @@ const isValidPhone = (phone) => /^\d{7,15}$/.test(phone);
 async function resolveAssignedTo(assignedTo) {
   if (!assignedTo) return null;
 
-  // If valid ObjectId, check directly
   if (mongoose.Types.ObjectId.isValid(assignedTo)) {
     const user = await User.findById(assignedTo);
     if (user) return user;
   }
 
-  // Otherwise match by name or email
   return await User.findOne({
     $or: [{ name: assignedTo }, { email: assignedTo }]
   });
@@ -564,7 +562,6 @@ exports.createLead = async (req, res) => {
 
     const { assignedTo, ...leadData } = req.body;
 
-    // Check for duplicates
     const existingLead = await Lead.findOne({
       email: leadData.email,
       contactNumber: leadData.contactNumber
@@ -573,21 +570,13 @@ exports.createLead = async (req, res) => {
       return res.status(400).json({ success: false, message: "Lead with same email & contact already exists" });
     }
 
-    // Resolve assigned user
-    let user = null;
-    if (assignedTo) {
-      user = await resolveAssignedTo(assignedTo);
-      if (!user) return res.status(400).json({ success: false, message: "Invalid assignedTo user" });
-    }
+    const user = assignedTo ? await resolveAssignedTo(assignedTo) : null;
+    if (assignedTo && !user) return res.status(400).json({ success: false, message: "Invalid assignedTo user" });
 
-    const lead = new Lead({
-      ...leadData,
-      assignedTo: user ? user._id : null,
-    });
-
+    const lead = new Lead({ ...leadData, assignedTo: user?._id || null });
     await lead.save();
-    const populatedLead = await lead.populate("assignedTo", "name");
 
+    const populatedLead = await lead.populate("assignedTo", "name");
     res.status(201).json({ success: true, data: populatedLead });
   } catch (err) {
     console.error("createLead error:", err);
@@ -613,9 +602,9 @@ exports.bulkUploadLeads = async (req, res) => {
 
       const { assignedTo, transferTo, capturedBy, ...leadData } = data;
 
-      const assignedUser = assignedTo ? await User.findOne({ name: assignedTo }) : null;
-      const transferUser = transferTo ? await User.findOne({ name: transferTo }) : null;
-      const capturedUser = capturedBy ? await User.findOne({ name: capturedBy }) : null;
+      const assignedUser = assignedTo ? await resolveAssignedTo(assignedTo) : null;
+      const transferUser = transferTo ? await resolveAssignedTo(transferTo) : null;
+      const capturedUser = capturedBy ? await resolveAssignedTo(capturedBy) : null;
 
       if ((assignedTo && !assignedUser) || (transferTo && !transferUser) || (capturedBy && !capturedUser)) {
         console.warn(`⚠️ Skipping lead: could not resolve one of assignedTo/transferTo/capturedBy`);
@@ -630,7 +619,7 @@ exports.bulkUploadLeads = async (req, res) => {
       });
 
       await newLead.save();
-      createdLeads.push(await newLead.populate("assignedTo", "name"));
+      createdLeads.push(await newLead.populate("assignedTo transferTo capturedBy", "name"));
     }
 
     res.status(201).json({
@@ -650,14 +639,10 @@ exports.bulkUploadLeads = async (req, res) => {
 exports.assignLead = async (req, res) => {
   try {
     const { assignedTo } = req.body;
-    if (!assignedTo) {
-      return res.status(400).json({ success: false, message: "assignedTo field is required" });
-    }
+    if (!assignedTo) return res.status(400).json({ success: false, message: "assignedTo field is required" });
 
     const user = await resolveAssignedTo(assignedTo);
-    if (!user) {
-      return res.status(400).json({ success: false, message: "Invalid assignedTo user" });
-    }
+    if (!user) return res.status(400).json({ success: false, message: "Invalid assignedTo user" });
 
     const lead = await Lead.findByIdAndUpdate(
       req.params.id,
@@ -665,9 +650,7 @@ exports.assignLead = async (req, res) => {
       { new: true }
     ).populate("assignedTo", "name");
 
-    if (!lead) {
-      return res.status(404).json({ success: false, message: "Lead not found" });
-    }
+    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
 
     res.json({ success: true, message: "Lead assigned successfully", data: lead });
   } catch (err) {
@@ -682,15 +665,12 @@ exports.assignLead = async (req, res) => {
 exports.bulkAssignLeads = async (req, res) => {
   try {
     const { leadIds, assignedTo } = req.body;
-
     if (!Array.isArray(leadIds) || leadIds.length === 0 || !assignedTo) {
       return res.status(400).json({ success: false, message: "leadIds and assignedTo are required" });
     }
 
     const user = await resolveAssignedTo(assignedTo);
-    if (!user) {
-      return res.status(400).json({ success: false, message: "Invalid assignedTo user" });
-    }
+    if (!user) return res.status(400).json({ success: false, message: "Invalid assignedTo user" });
 
     const result = await Lead.updateMany(
       { _id: { $in: leadIds } },
@@ -712,22 +692,15 @@ exports.bulkAssignLeads = async (req, res) => {
 ========================================================= */
 exports.getLeads = async (req, res) => {
   try {
-    if (!req.user || !req.user.name) {
-      return res.status(401).json({ success: false, message: "Unauthorized access" });
-    }
+    if (!req.user || !req.user.name) return res.status(401).json({ success: false, message: "Unauthorized access" });
 
     const userRole = req.user.role || "user";
     const userName = req.user.name;
-    let filter = {};
 
-    if (userRole !== "admin") {
-      filter = { transferTo: userName };
-    }
+    const filter = userRole === "admin" ? {} : { transferTo: userName };
 
     const leads = await Lead.find(filter)
-      .populate("assignedTo", "name")
-      .populate("transferTo", "name")
-      .populate("capturedBy", "name")
+      .populate("assignedTo transferTo capturedBy", "name")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -751,56 +724,32 @@ exports.updateLead = async (req, res) => {
     const updateData = { ...req.body };
 
     const oldLead = await Lead.findById(id);
-    if (!oldLead) {
-      return res.status(404).json({ success: false, message: "Lead not found" });
-    }
+    if (!oldLead) return res.status(404).json({ success: false, message: "Lead not found" });
 
     if (updateData.assignedTo !== undefined) {
       const user = await resolveAssignedTo(updateData.assignedTo);
-      if (!user) {
-        return res.status(400).json({ success: false, message: "Invalid assignedTo user" });
-      }
+      if (!user) return res.status(400).json({ success: false, message: "Invalid assignedTo user" });
       updateData.assignedTo = user._id;
     }
 
     const updatedLead = await Lead.findByIdAndUpdate(id, updateData, { new: true })
-      .populate("assignedTo", "name");
+      .populate("assignedTo transferTo capturedBy", "name");
 
-    // Track changes for history + notifications
     const trackedFields = ["status", "assignedTo", "capturedBy", "transferTo", "remark", "followUp"];
-
-    let changedBy = req.user ? await User.findById(req.user._id).select("name email") : null;
+    const changedBy = req.user ? await User.findById(req.user._id).select("name email") : null;
 
     for (const field of trackedFields) {
-      let oldValue = oldLead[field];
-      let newValue = updatedLead[field];
+      const oldValue = oldLead[field];
+      const newValue = updatedLead[field];
 
       if (String(oldValue || "") !== String(newValue || "")) {
-        await LeadHistory.create({
-          leadId: id,
-          changedBy,
-          field,
-          oldValue,
-          newValue,
-        });
+        await LeadHistory.create({ leadId: id, changedBy, field, oldValue, newValue });
 
         const msg = `🔄 Lead "${oldLead.clientName}" ${field} changed from ${oldValue || "N/A"} → ${newValue || "N/A"} by ${changedBy?.name || "System"}`;
 
-        await Notification.create({
-          type: "Lead",
-          itemId: id,
-          message: msg,
-          changedBy: changedBy?.name || "System",
-        });
+        await Notification.create({ type: "Lead", itemId: id, message: msg, changedBy: changedBy?.name || "System" });
 
-        if (global.io) {
-          global.io.emit("lead_update_notification", {
-            type: "Lead",
-            leadId: id,
-            message: msg,
-            changedBy: changedBy?.name || "System",
-          });
-        }
+        if (global.io) global.io.emit("lead_update_notification", { type: "Lead", leadId: id, message: msg, changedBy: changedBy?.name || "System" });
       }
     }
 
@@ -817,15 +766,9 @@ exports.updateLead = async (req, res) => {
 exports.getLeadById = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid lead ID" });
-    }
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ success: false, message: "Invalid lead ID" });
 
-    const lead = await Lead.findById(id)
-      .populate("assignedTo", "name")
-      .populate("transferTo", "name")
-      .populate("capturedBy", "name");
-
+    const lead = await Lead.findById(id).populate("assignedTo transferTo capturedBy", "name");
     if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
 
     res.json({ success: true, data: lead });
@@ -860,9 +803,7 @@ exports.getLeadsByUserName = async (req, res) => {
     const user = await User.findOne({ name });
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    const leads = await Lead.find({ assignedTo: user._id })
-      .populate("assignedTo", "name")
-      .sort({ createdAt: -1 });
+    const leads = await Lead.find({ assignedTo: user._id }).populate("assignedTo", "name").sort({ createdAt: -1 });
 
     res.status(200).json({ success: true, count: leads.length, data: leads });
   } catch (err) {
@@ -879,7 +820,10 @@ exports.getLeadsByCapturedBy = async (req, res) => {
     const { name } = req.query;
     if (!name) return res.status(400).json({ success: false, message: "capturedBy (name) is required" });
 
-    const leads = await Lead.find({ capturedBy: name })
+    const user = await User.findOne({ name });
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    const leads = await Lead.find({ capturedBy: user._id })
       .populate("capturedBy", "name")
       .sort({ createdAt: -1 });
 
@@ -896,19 +840,13 @@ exports.getLeadsByCapturedBy = async (req, res) => {
 exports.getLeadChangeHistory = async (req, res) => {
   try {
     const { leadId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(leadId)) {
-      return res.status(400).json({ success: false, message: "Invalid lead ID" });
-    }
+    if (!mongoose.Types.ObjectId.isValid(leadId)) return res.status(400).json({ success: false, message: "Invalid lead ID" });
 
     const history = await LeadHistory.find({ leadId })
       .sort({ createdAt: -1 })
       .populate("changedBy._id", "name email");
 
-    res.status(200).json({
-      success: true,
-      count: history.length,
-      data: history,
-    });
+    res.status(200).json({ success: true, count: history.length, data: history });
   } catch (err) {
     console.error("getLeadChangeHistory error:", err);
     res.status(500).json({ success: false, message: "Error fetching lead history" });
