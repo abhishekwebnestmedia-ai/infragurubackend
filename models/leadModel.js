@@ -2,7 +2,7 @@
 
 const mongoose = require('mongoose');
 
-// Valid enums
+// ✅ Valid Enums
 const validStatuses = [
   "Hot",
   "Not Connected",
@@ -13,9 +13,13 @@ const validStatuses = [
   "Completed"
 ];
 
-const validLeadTypes = [
-  "Buyer",
-  "Rental"
+const validSources = [
+  "Meta",
+  "Google",
+  "Referral",
+  "Website",
+  "Walk-in",
+  "Other"
 ];
 
 // ✅ Helper to generate IST date-time string in "YYYY-MM-DD HH:mm:ss" format
@@ -28,40 +32,36 @@ function getISTDateTime() {
 
 const leadSchema = new mongoose.Schema(
   {
-    customerName: { type: String, required: true },
-    contactNumber: { type: String, required: true },
-    email: { type: String, required: true },
+    source: { type: String, enum: validSources },
+    executiveName: { type: String },
+    assignedTo: { type: String },
+    transferTo: { type: String },
+    capturedBy: { type: String },
 
-    status: {
+    date: {
       type: String,
-      required: true,
-      enum: validStatuses,
-    },
-
-    leadType: {
-      type: String,
-      required: true,
-      enum: validLeadTypes,
+      default: getISTDateTime,
     },
 
     followUp: {
       type: String,
-      default: getISTDateTime, // Auto-set IST time if not provided
+      default: getISTDateTime,
     },
 
-    requirement: { type: String },
-    remark: { type: String },
-
-    date: {
+    status: {
       type: String,
-      default: getISTDateTime, // Auto-set IST date when created
+      enum: validStatuses,
+      default: "Not Connected",
     },
 
-    capturedBy: { type: String },
-    assignTo: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    transferTo: { type: String },
-    source: { type: String },
-    Budget: { type: String },
+    clientName: { type: String, required: true },
+    contactNumber: { type: String, required: true },
+    email: { type: String, required: true },
+
+    budget: { type: String },
+    location: { type: String },
+    projects: { type: String },
+    remark: { type: String },
   },
   { timestamps: true }
 );
