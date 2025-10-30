@@ -115,7 +115,7 @@ console.log('MONGO_URI:', process.env.MONGO_URI);
 // CORS configuration (allow only frontend localhost:3000)
 // -------------------------
 app.use(cors({
-  origin: "http://localhost:3000", // only allow this origin
+  origin: "http://localhost:3001", // only allow this origin
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true // allow cookies/auth headers
@@ -149,7 +149,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000", // only frontend allowed
+    origin: "http://localhost:3001", // only frontend allowed
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true
