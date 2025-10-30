@@ -135,7 +135,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/groups", require("./routes/grouproute"));
 app.use("/api/broadcasts", require("./routes/broadcastroute"));
 app.use("/api/notifications", require("./routes/notificationRoutes"));
-app.use('/api/realtleads', require('./routes/leadroute'));
+app.use('/api/lead', require('./routes/leadroute'));
 
 // Root route
 app.get('/', (req, res) => {
