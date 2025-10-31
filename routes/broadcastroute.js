@@ -5,6 +5,6 @@ const { upload } = require("../middleware/upload");
 const { createBroadcast, getGroupBroadcasts } = require("../controllers/broadcastController");
 
 router.post("/", authMiddleware, upload.single("attachment"), createBroadcast);
-router.get("/:groupId", authMiddleware, getGroupBroadcasts);
+router.get("/:groupId", authMiddleware, getGroupBroadcasts); 
 
 module.exports = router;
