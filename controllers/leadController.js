@@ -611,25 +611,61 @@ exports.bulkUploadLeads = async (req, res) => {
 };
 
 // ================= GET LEADS =================
+// exports.getLeads = async (req, res) => {
+//   try {
+//     if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+//     const userRole = req.user.role || "user";
+//     let filter = {};
+
+//     if (userRole !== "admin") {
+//       filter = { transferTo: req.user._id };
+//     }
+
+//     const leads = await Lead.find(filter).sort({ createdAt: -1 }).populate("assignedTo transferTo capturedBy", "name email");
+//     res.json({ success: true, role: userRole, count: leads.length, data: leads });
+
+//   } catch (err) {
+//     console.error("getLeads error:", err);
+//     res.status(500).json({ success: false, message: "Server error fetching leads" });
+//   }
+// };
+
 exports.getLeads = async (req, res) => {
   try {
-    if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: "Unauthorized" });
+    if (!req.user || !req.user._id)
+      return res.status(401).json({ success: false, message: "Unauthorized" });
 
     const userRole = req.user.role || "user";
     let filter = {};
 
     if (userRole !== "admin") {
-      filter = { transferTo: req.user._id };
+      filter = {
+        $or: [
+          { transferTo: req.user._id },
+          { assignedTo: req.user._id },
+          { capturedBy: req.user._id }
+        ]
+      };
     }
 
-    const leads = await Lead.find(filter).sort({ createdAt: -1 }).populate("assignedTo transferTo capturedBy", "name email");
-    res.json({ success: true, role: userRole, count: leads.length, data: leads });
+    const leads = await Lead.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("assignedTo transferTo capturedBy", "name email");
+
+    res.json({
+      success: true,
+      role: userRole,
+      count: leads.length,
+      data: leads
+    });
 
   } catch (err) {
     console.error("getLeads error:", err);
     res.status(500).json({ success: false, message: "Server error fetching leads" });
   }
 };
+
 
 // ================= GET LEAD BY ID =================
 exports.getLeadById = async (req, res) => {
