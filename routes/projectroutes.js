@@ -30,3 +30,9 @@ router.put("/:id", upload.single("thumbnail"), updateProject);
 router.delete("/:id", deleteProject);
 
 module.exports = router;
+
+
+
+
+
+
