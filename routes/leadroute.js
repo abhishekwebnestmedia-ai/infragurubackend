@@ -25,6 +25,9 @@ router.post('/bulk-assign',authMiddleware, leadController.bulkAssignLeads);
 router.get('/teamassigned', authMiddleware, leadController.getTeamAssigned);
 router.get('/dashLeads', authMiddleware,  leadController.getDashboardLead);
 
+router.post("/dash/:userName", authMiddleware, leadController.getUserLeadStats);
+
+
 // Delete a lead
 router.delete('/delete/:id', authMiddleware, leadController.deleteLead);
 router.get('/userbasedlead',authMiddleware, leadController.getLeadsByUserName);
