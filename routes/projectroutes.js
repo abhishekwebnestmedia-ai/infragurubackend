@@ -5,7 +5,7 @@ const path = require("path");
 const {
   createProject,
   getAllProjects,
-  getProjectById,
+  // getProjectById,
   updateProject,
   deleteProject,
 } = require("../controllers/projectController");

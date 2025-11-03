@@ -385,3 +385,43 @@ exports.getTeamAssigned = async (req, res) => {
   }
 };
 
+
+
+exports.getDashboardLead = async (req, res) => {
+  try {
+    // ✅ Define valid statuses
+    const validStatuses = ["Follow Ups", "Not Connected", "Prospect", "Closer"];
+
+    // ✅ Optional: Filter by user or executive (for per-user reports)
+    const filter = {};
+    if (req.query.executiveName) {
+      filter.executiveName = req.query.executiveName;
+    }
+
+    // ✅ Fetch all leads
+    const allLeads = await Lead.find(filter);
+
+    // ✅ Calculate counts per status
+    const statusCounts = {};
+    validStatuses.forEach((status) => {
+      statusCounts[status] = allLeads.filter((lead) => lead.status === status).length;
+    });
+
+    // ✅ Compute total
+    const total = Object.values(statusCounts).reduce((a, b) => a + b, 0);
+
+    // ✅ Return nicely structured response
+    res.status(200).json({
+      success: true,
+      total,
+      data: statusCounts,
+    });
+  } catch (err) {
+    console.error("❌ getLeadStatusSummary error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error fetching lead summary",
+      error: err.message,
+    });
+  }
+};

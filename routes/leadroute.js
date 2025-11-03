@@ -23,6 +23,7 @@ router.put('/update/:id', authMiddleware, leadController.updateLead);
 router.patch('/assign/:id', authMiddleware, leadController.assignLead);
 router.post('/bulk-assign',authMiddleware, leadController.bulkAssignLeads);
 router.get('/teamassigned', authMiddleware, leadController.getTeamAssigned);
+router.get('/dashLeads', authMiddleware,  leadController.getDashboardLead);
 
 // Delete a lead
 router.delete('/delete/:id', authMiddleware, leadController.deleteLead);
@@ -31,6 +32,7 @@ router.get('/captured', authMiddleware, leadController.getLeadsByCapturedBy);
 router.get('/:leadId/history', authMiddleware, leadController.getLeadChangeHistory);
 
 module.exports = router;
+
 
 
 
