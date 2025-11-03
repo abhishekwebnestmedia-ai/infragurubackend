@@ -315,24 +315,27 @@ exports.getLeadChangeHistory = async (req, res) => {
 };
 
 
+
+// ================= TEAM ASSIGNED SUMMARY =================
 exports.getTeamAssigned = async (req, res) => {
   try {
-    // 1️⃣ Get all active users (sales or user role)
-    const users = await User.find({ role: { $in: ["sales", "user"] } });
+    // ✅ 1️⃣ Get all active users (include admin, sales, user)
+    const users = await User.find({ role: { $in: ["admin", "sales", "user"] } });
 
-    // 2️⃣ Fetch all leads once
-    const allLeads = await Lead.find();
+    // ✅ 2️⃣ Fetch all leads once (populated with transferTo user info)
+    const allLeads = await Lead.find().populate("transferTo", "name");
 
-    // 3️⃣ Prepare today's date (IST)
+    // ✅ 3️⃣ Prepare today's date (IST)
     const now = new Date();
     const istOffset = 5.5 * 60 * 60 * 1000;
     const istNow = new Date(now.getTime() + istOffset);
-    const todayStr = istNow.toISOString().slice(0, 10); // YYYY-MM-DD
+    const todayStr = istNow.toISOString().slice(0, 10); // "YYYY-MM-DD"
 
-    // 4️⃣ Process each user
+    // ✅ 4️⃣ Process each user
     const results = users.map((user) => {
+      // Filter leads where transferTo matches this user's _id
       const userLeads = allLeads.filter(
-        (lead) => lead.transferTo?.toLowerCase() === user.name.toLowerCase()
+        (lead) => lead.transferTo && lead.transferTo._id.toString() === user._id.toString()
       );
 
       // Basic counts
@@ -342,29 +345,29 @@ exports.getTeamAssigned = async (req, res) => {
         (l) => l.followUp && l.followUp.startsWith(todayStr)
       ).length;
 
-      // Status-wise breakdown (for "View More")
-      const statusBreakdown = {
-        Hot: 0,
-        Serious: 0,
-        Potential: 0,
-        "Not Connected": 0,
-        Futuristic: 0,
-        "Dead Lead": 0,
-        Completed: 0,
-      };
+      // Status-wise breakdown for "View More"
+      const validStatuses = [
+        "Hot",
+        "Serious",
+        "Potential",
+        "Not Connected",
+        "Futuristic",
+        "Dead Lead",
+        "Completed",
+      ];
 
-      userLeads.forEach((l) => {
-        if (statusBreakdown[l.status] !== undefined) {
-          statusBreakdown[l.status]++;
-        }
+      const statusBreakdown = {};
+      validStatuses.forEach((status) => {
+        statusBreakdown[status] = userLeads.filter((l) => l.status === status).length;
       });
 
       return {
         name: user.name,
+        role: user.role,
         totalLeads,
         hotLeads,
         todayVisits,
-        statusBreakdown, // 👈 for "View More"
+        statusBreakdown,
       };
     });
 
@@ -373,10 +376,12 @@ exports.getTeamAssigned = async (req, res) => {
       data: results,
     });
   } catch (err) {
-    console.error("❌ getAllUsersLeadSummary error:", err);
+    console.error("❌ getTeamAssigned error:", err);
     res.status(500).json({
       success: false,
       message: "Server error fetching lead summary",
     });
   }
 };
+
+
