@@ -7,7 +7,11 @@ const LeadHistory = require("../models/leadHistory");
 
 // Valid statuses for leads
 const validStatuses = [
-  "Hot", "Not Connected", "Serious", "Potential", "Futuristic", "Dead Lead", "Completed"
+ 
+      "Follow Ups",
+      "Not Connected",
+      "Prospect",
+      "Closer",
 ];
 
 // Simple email and phone validators
@@ -322,31 +326,19 @@ exports.getTeamAssigned = async (req, res) => {
     console.log("🔹 Starting getTeamAssigned");
 
     // ✅ Fetch ALL users (no role restriction)
-    const users = await User.find();
+    const users = await User.find({}, "name role"); // Only fetch necessary fields
     console.log("✅ Users found:", users.length);
 
     // ✅ Fetch all leads (populate transferTo)
     const allLeads = await Lead.find().populate("transferTo", "name");
     console.log("✅ Leads found:", allLeads.length);
 
-    // ✅ Prepare today's date (IST)
-    const now = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const istNow = new Date(now.getTime() + istOffset);
-    const todayStr = istNow.toISOString().slice(0, 10);
+    // ✅ Define the statuses you care about
+    const validStatuses = ["Follow Ups", "Not Connected", "Prospect", "Closer"];
 
-    const validStatuses = [
-      "Hot",
-      "Serious",
-      "Potential",
-      "Not Connected",
-      "Futuristic",
-      "Dead Lead",
-      "Completed",
-    ];
-
-    // ✅ Process each user
+    // ✅ Build response data for each user
     const results = users.map((user) => {
+      // Leads assigned to this user
       const userLeads = allLeads.filter(
         (lead) =>
           lead.transferTo &&
@@ -354,32 +346,38 @@ exports.getTeamAssigned = async (req, res) => {
           lead.transferTo._id.toString() === user._id.toString()
       );
 
+      // Total leads count
       const totalLeads = userLeads.length;
+
+      // Count Hot leads (if relevant)
       const hotLeads = userLeads.filter((l) => l.status === "Hot").length;
 
-      // Safe followUp handling
-  
+      // Status breakdown
       const statusBreakdown = {};
-      validStatuses.forEach(
-        (status) =>
-          (statusBreakdown[status] = userLeads.filter((l) => l.status === status).length)
-      );
+      validStatuses.forEach((status) => {
+        statusBreakdown[status] = userLeads.filter(
+          (l) => l.status === status
+        ).length;
+      });
 
       return {
         name: user.name,
         role: user.role,
         totalLeads,
         hotLeads,
-   
         statusBreakdown,
       };
     });
 
     console.log("✅ Processed users summary successfully");
-    res.status(200).json({ success: true, data: results });
+    return res.status(200).json({
+      success: true,
+      totalUsers: results.length,
+      data: results,
+    });
   } catch (err) {
     console.error("❌ getTeamAssigned error:", err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error fetching lead summary",
       error: err.message,

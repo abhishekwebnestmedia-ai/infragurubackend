@@ -3,7 +3,11 @@
 const mongoose = require('mongoose');
 
 const validStatuses = [
-  "Hot", "Not Connected", "Serious", "Potential", "Futuristic", "Dead Lead", "Completed"
+   
+      "Follow Ups",
+      "Not Connected",
+      "Prospect",
+      "Closer",
 ];
 
 const validSources = ["Meta", "Google", "Referral", "Website", "Walk-in", "Other"];
