@@ -492,6 +492,7 @@ exports.getDashboardLead = async (req, res) => {
 // };
 
 
+
 exports.getUserLeadStats = async (req, res) => {
   try {
     const userName = req.params.userName; // ✅ Get from URL param
@@ -515,10 +516,10 @@ exports.getUserLeadStats = async (req, res) => {
       });
     }
 
-    // ✅ Group by month (IST timezone)
+    // ✅ Group by day (IST timezone)
     const dateGroup = {
       $dateToString: {
-        format: "%Y-%m",
+        format: "%Y-%m-%d", // ✅ <-- changed from "%Y-%m" to "%Y-%m-%d"
         date: "$createdAt",
         timezone: "Asia/Kolkata",
       },
