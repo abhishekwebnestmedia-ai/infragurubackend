@@ -29,8 +29,7 @@ router.delete('/delete/:id', authMiddleware, leadController.deleteLead);
 router.get('/userbasedlead',authMiddleware, leadController.getLeadsByUserName);
 router.get('/captured', authMiddleware, leadController.getLeadsByCapturedBy);
 router.get('/:leadId/history', authMiddleware, leadController.getLeadChangeHistory);
-
-
+router.get('/leadassigned', authMiddleware, leadController.getLeadAssigned);  
 
 module.exports = router;
 

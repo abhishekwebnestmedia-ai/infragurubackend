@@ -319,8 +319,6 @@ exports.resetPassword = async (req, res) => {
 };
 
 
-
-
 exports.getLoggedInUsers = async (req, res) => {
   try {
     // Fetch all users, including their isLoggedIn status

@@ -25,7 +25,7 @@ const upload = multer({ storage });
 // ✅ Routes
 router.post("/create", upload.single("thumbnail"), createProject);
 router.get("/", getAllProjects);
-router.get("/:id", getProjectById);
+// router.get("/:id", getProjectById);
 router.put("/:id", upload.single("thumbnail"), updateProject);
 router.delete("/:id", deleteProject);
 
