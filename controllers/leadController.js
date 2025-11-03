@@ -421,72 +421,172 @@ exports.getDashboardLead = async (req, res) => {
 };
 
 
+// exports.getUserLeadStats = async (req, res) => {
+//   try {
+//     const userName = req.params.userName; // ✅ Get from URL param
+
+//     if (!userName)
+//       return res.status(400).json({ success: false, message: "userName is required in URL" });
+
+//     // ✅ Find user by name (case-insensitive match)
+//     const user = await User.findOne({ name: { $regex: new RegExp(`^${userName}$`, "i") } });
+//     if (!user)
+//       return res.status(404).json({ success: false, message: "User not found" });
+
+//     // ✅ Group by month (IST timezone)
+//     const dateGroup = {
+//       $dateToString: { format: "%Y-%m", date: "$createdAt", timezone: "Asia/Kolkata" }
+//     };
+
+//     // ✅ Aggregate user stats
+//     const stats = await Lead.aggregate([
+//       {
+//         $match: {
+//           $or: [
+//             { capturedBy: user._id },
+//             { assignedTo: user._id }
+//           ]
+//         }
+//       },
+//       {
+//         $group: {
+//           _id: { date: dateGroup },
+//           capturedCount: {
+//             $sum: { $cond: [{ $eq: ["$capturedBy", user._id] }, 1, 0] }
+//           },
+//           assignedCount: {
+//             $sum: { $cond: [{ $eq: ["$assignedTo", user._id] }, 1, 0] }
+//           }
+//         }
+//       },
+//       { $sort: { "_id.date": 1 } }
+//     ]);
+
+//     // ✅ Format response
+//     const formatted = stats.map(s => ({
+//       date: s._id.date,
+//       captured: s.capturedCount,
+//       assigned: s.assignedCount
+//     }));
+
+//     // ✅ Calculate totals
+//     const totalCaptured = formatted.reduce((a, b) => a + b.captured, 0);
+//     const totalAssigned = formatted.reduce((a, b) => a + b.assigned, 0);
+
+//     return res.status(200).json({
+//       success: true,
+//       user: user.name,
+//       totalCaptured,
+//       totalAssigned,
+//       data: formatted
+//     });
+
+//   } catch (err) {
+//     console.error("❌ getUserLeadStats error:", err);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error fetching user lead stats",
+//       error: err.message
+//     });
+//   }
+// };
+
+
 exports.getUserLeadStats = async (req, res) => {
   try {
     const userName = req.params.userName; // ✅ Get from URL param
 
-    if (!userName)
-      return res.status(400).json({ success: false, message: "userName is required in URL" });
+    if (!userName) {
+      return res.status(400).json({
+        success: false,
+        message: "userName is required in URL",
+      });
+    }
 
-    // ✅ Find user by name (case-insensitive match)
-    const user = await User.findOne({ name: { $regex: new RegExp(`^${userName}$`, "i") } });
-    if (!user)
-      return res.status(404).json({ success: false, message: "User not found" });
+    // ✅ Find user by name (case-insensitive)
+    const user = await User.findOne({
+      name: { $regex: new RegExp(`^${userName}$`, "i") },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
     // ✅ Group by month (IST timezone)
     const dateGroup = {
-      $dateToString: { format: "%Y-%m", date: "$createdAt", timezone: "Asia/Kolkata" }
+      $dateToString: {
+        format: "%Y-%m",
+        date: "$createdAt",
+        timezone: "Asia/Kolkata",
+      },
     };
 
-    // ✅ Aggregate user stats
+    // ✅ Aggregate user stats (include transferTo)
     const stats = await Lead.aggregate([
       {
         $match: {
           $or: [
             { capturedBy: user._id },
-            { assignedTo: user._id }
-          ]
-        }
+            { assignedTo: user._id },
+            { transferTo: user._id },
+          ],
+        },
       },
       {
         $group: {
           _id: { date: dateGroup },
           capturedCount: {
-            $sum: { $cond: [{ $eq: ["$capturedBy", user._id] }, 1, 0] }
+            $sum: {
+              $cond: [{ $eq: ["$capturedBy", user._id] }, 1, 0],
+            },
           },
           assignedCount: {
-            $sum: { $cond: [{ $eq: ["$assignedTo", user._id] }, 1, 0] }
-          }
-        }
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: ["$assignedTo", user._id] },
+                    { $eq: ["$transferTo", user._id] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
       },
-      { $sort: { "_id.date": 1 } }
+      { $sort: { "_id.date": 1 } },
     ]);
 
-    // ✅ Format response
-    const formatted = stats.map(s => ({
+    // ✅ Format response data
+    const formatted = stats.map((s) => ({
       date: s._id.date,
       captured: s.capturedCount,
-      assigned: s.assignedCount
+      assigned: s.assignedCount,
     }));
 
     // ✅ Calculate totals
     const totalCaptured = formatted.reduce((a, b) => a + b.captured, 0);
     const totalAssigned = formatted.reduce((a, b) => a + b.assigned, 0);
 
+    // ✅ Send final response
     return res.status(200).json({
       success: true,
       user: user.name,
       totalCaptured,
       totalAssigned,
-      data: formatted
+      data: formatted,
     });
-
   } catch (err) {
     console.error("❌ getUserLeadStats error:", err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error fetching user lead stats",
-      error: err.message
+      error: err.message,
     });
   }
 };
