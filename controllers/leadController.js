@@ -321,51 +321,62 @@ exports.getTeamAssigned = async (req, res) => {
   try {
     console.log("🔹 Starting getTeamAssigned");
 
-    // Step 1: Get all users
-    const users = await User.find({ role: { $in: ["admin", "sales", "user"] } });
+    // ✅ Fetch ALL users (no role restriction)
+    const users = await User.find();
     console.log("✅ Users found:", users.length);
 
-    // Step 2: Fetch all leads (populate transferTo)
+    // ✅ Fetch all leads (populate transferTo)
     const allLeads = await Lead.find().populate("transferTo", "name");
     console.log("✅ Leads found:", allLeads.length);
 
-    // Step 3: Prepare today's date
+    // ✅ Prepare today's date (IST)
     const now = new Date();
     const istOffset = 5.5 * 60 * 60 * 1000;
     const istNow = new Date(now.getTime() + istOffset);
     const todayStr = istNow.toISOString().slice(0, 10);
 
-    // Step 4: Process users
+    const validStatuses = [
+      "Hot",
+      "Serious",
+      "Potential",
+      "Not Connected",
+      "Futuristic",
+      "Dead Lead",
+      "Completed",
+    ];
+
+    // ✅ Process each user
     const results = users.map((user) => {
-      const userLeads = allLeads.filter((lead) => {
-        // ✅ Defensive check (sometimes transferTo might be null or not populated)
-        return (
+      const userLeads = allLeads.filter(
+        (lead) =>
           lead.transferTo &&
           lead.transferTo._id &&
           lead.transferTo._id.toString() === user._id.toString()
-        );
-      });
+      );
 
       const totalLeads = userLeads.length;
       const hotLeads = userLeads.filter((l) => l.status === "Hot").length;
-      const todayVisits = userLeads.filter(
-        (l) => l.followUp && l.followUp.startsWith(todayStr)
-      ).length;
 
-      const validStatuses = [
-        "Hot",
-        "Serious",
-        "Potential",
-        "Not Connected",
-        "Futuristic",
-        "Dead Lead",
-        "Completed",
-      ];
+      // Safe followUp handling
+      const todayVisits = userLeads.filter((l) => {
+        if (!l.followUp) return false;
+        let followUpStr = "";
+        if (l.followUp instanceof Date) {
+          const istFollow = new Date(l.followUp.getTime() + istOffset);
+          followUpStr = istFollow.toISOString().slice(0, 10);
+        } else if (typeof l.followUp === "string") {
+          followUpStr = l.followUp.slice(0, 10);
+        } else {
+          return false;
+        }
+        return followUpStr === todayStr;
+      }).length;
 
       const statusBreakdown = {};
-      validStatuses.forEach((status) => {
-        statusBreakdown[status] = userLeads.filter((l) => l.status === status).length;
-      });
+      validStatuses.forEach(
+        (status) =>
+          (statusBreakdown[status] = userLeads.filter((l) => l.status === status).length)
+      );
 
       return {
         name: user.name,
@@ -384,10 +395,8 @@ exports.getTeamAssigned = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error fetching lead summary",
-      error: err.message, // 👈 show actual error temporarily
+      error: err.message,
     });
   }
 };
-
-
 
