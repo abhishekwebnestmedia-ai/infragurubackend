@@ -358,20 +358,7 @@ exports.getTeamAssigned = async (req, res) => {
       const hotLeads = userLeads.filter((l) => l.status === "Hot").length;
 
       // Safe followUp handling
-      const todayVisits = userLeads.filter((l) => {
-        if (!l.followUp) return false;
-        let followUpStr = "";
-        if (l.followUp instanceof Date) {
-          const istFollow = new Date(l.followUp.getTime() + istOffset);
-          followUpStr = istFollow.toISOString().slice(0, 10);
-        } else if (typeof l.followUp === "string") {
-          followUpStr = l.followUp.slice(0, 10);
-        } else {
-          return false;
-        }
-        return followUpStr === todayStr;
-      }).length;
-
+  
       const statusBreakdown = {};
       validStatuses.forEach(
         (status) =>
@@ -383,7 +370,7 @@ exports.getTeamAssigned = async (req, res) => {
         role: user.role,
         totalLeads,
         hotLeads,
-        todayVisits,
+   
         statusBreakdown,
       };
     });
