@@ -22,7 +22,6 @@ router.put('/update/:id', authMiddleware, leadController.updateLead);
 // Assign/Reassign a lead
 router.patch('/assign/:id', authMiddleware, leadController.assignLead);
 router.post('/bulk-assign',authMiddleware, leadController.bulkAssignLeads);
-router.get('/teamassigned', authMiddleware, leadController.getTeamAssigned);
 
 // Delete a lead
 router.delete('/delete/:id', authMiddleware, leadController.deleteLead);
