@@ -319,33 +319,39 @@ exports.getLeadChangeHistory = async (req, res) => {
 // ================= TEAM ASSIGNED SUMMARY =================
 exports.getTeamAssigned = async (req, res) => {
   try {
-    // ✅ 1️⃣ Get all active users (include admin, sales, user)
+    console.log("🔹 Starting getTeamAssigned");
+
+    // Step 1: Get all users
     const users = await User.find({ role: { $in: ["admin", "sales", "user"] } });
+    console.log("✅ Users found:", users.length);
 
-    // ✅ 2️⃣ Fetch all leads once (populated with transferTo user info)
+    // Step 2: Fetch all leads (populate transferTo)
     const allLeads = await Lead.find().populate("transferTo", "name");
+    console.log("✅ Leads found:", allLeads.length);
 
-    // ✅ 3️⃣ Prepare today's date (IST)
+    // Step 3: Prepare today's date
     const now = new Date();
     const istOffset = 5.5 * 60 * 60 * 1000;
     const istNow = new Date(now.getTime() + istOffset);
-    const todayStr = istNow.toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const todayStr = istNow.toISOString().slice(0, 10);
 
-    // ✅ 4️⃣ Process each user
+    // Step 4: Process users
     const results = users.map((user) => {
-      // Filter leads where transferTo matches this user's _id
-      const userLeads = allLeads.filter(
-        (lead) => lead.transferTo && lead.transferTo._id.toString() === user._id.toString()
-      );
+      const userLeads = allLeads.filter((lead) => {
+        // ✅ Defensive check (sometimes transferTo might be null or not populated)
+        return (
+          lead.transferTo &&
+          lead.transferTo._id &&
+          lead.transferTo._id.toString() === user._id.toString()
+        );
+      });
 
-      // Basic counts
       const totalLeads = userLeads.length;
       const hotLeads = userLeads.filter((l) => l.status === "Hot").length;
       const todayVisits = userLeads.filter(
         (l) => l.followUp && l.followUp.startsWith(todayStr)
       ).length;
 
-      // Status-wise breakdown for "View More"
       const validStatuses = [
         "Hot",
         "Serious",
@@ -371,17 +377,17 @@ exports.getTeamAssigned = async (req, res) => {
       };
     });
 
-    res.status(200).json({
-      success: true,
-      data: results,
-    });
+    console.log("✅ Processed users summary successfully");
+    res.status(200).json({ success: true, data: results });
   } catch (err) {
     console.error("❌ getTeamAssigned error:", err);
     res.status(500).json({
       success: false,
       message: "Server error fetching lead summary",
+      error: err.message, // 👈 show actual error temporarily
     });
   }
 };
+
 
 
