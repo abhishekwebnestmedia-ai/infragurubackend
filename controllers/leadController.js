@@ -392,14 +392,8 @@ exports.getDashboardLead = async (req, res) => {
     // ✅ Define valid statuses
     const validStatuses = ["Follow Ups", "Not Connected", "Prospect", "Closer"];
 
-    // ✅ Optional: Filter by user or executive (for per-user reports)
-    const filter = {};
-    if (req.query.executiveName) {
-      filter.executiveName = req.query.executiveName;
-    }
-
-    // ✅ Fetch all leads
-    const allLeads = await Lead.find(filter);
+    // ✅ Fetch ALL leads (no user filter)
+    const allLeads = await Lead.find();
 
     // ✅ Calculate counts per status
     const statusCounts = {};
@@ -407,20 +401,20 @@ exports.getDashboardLead = async (req, res) => {
       statusCounts[status] = allLeads.filter((lead) => lead.status === status).length;
     });
 
-    // ✅ Compute total
+    // ✅ Compute total count of all leads
     const total = Object.values(statusCounts).reduce((a, b) => a + b, 0);
 
-    // ✅ Return nicely structured response
+    // ✅ Return structured JSON response
     res.status(200).json({
       success: true,
       total,
       data: statusCounts,
     });
   } catch (err) {
-    console.error("❌ getLeadStatusSummary error:", err);
+    console.error("❌ getDashboardLead error:", err);
     res.status(500).json({
       success: false,
-      message: "Server error fetching lead summary",
+      message: "Server error fetching dashboard lead summary",
       error: err.message,
     });
   }
