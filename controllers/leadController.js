@@ -313,3 +313,70 @@ exports.getLeadChangeHistory = async (req, res) => {
     res.status(500).json({ success: false, message: "Error fetching lead history" });
   }
 };
+
+
+exports.getTeamAssigned = async (req, res) => {
+  try {
+    // 1️⃣ Get all active users (sales or user role)
+    const users = await User.find({ role: { $in: ["sales", "user"] } });
+
+    // 2️⃣ Fetch all leads once
+    const allLeads = await Lead.find();
+
+    // 3️⃣ Prepare today's date (IST)
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istNow = new Date(now.getTime() + istOffset);
+    const todayStr = istNow.toISOString().slice(0, 10); // YYYY-MM-DD
+
+    // 4️⃣ Process each user
+    const results = users.map((user) => {
+      const userLeads = allLeads.filter(
+        (lead) => lead.transferTo?.toLowerCase() === user.name.toLowerCase()
+      );
+
+      // Basic counts
+      const totalLeads = userLeads.length;
+      const hotLeads = userLeads.filter((l) => l.status === "Hot").length;
+      const todayVisits = userLeads.filter(
+        (l) => l.followUp && l.followUp.startsWith(todayStr)
+      ).length;
+
+      // Status-wise breakdown (for "View More")
+      const statusBreakdown = {
+        Hot: 0,
+        Serious: 0,
+        Potential: 0,
+        "Not Connected": 0,
+        Futuristic: 0,
+        "Dead Lead": 0,
+        Completed: 0,
+      };
+
+      userLeads.forEach((l) => {
+        if (statusBreakdown[l.status] !== undefined) {
+          statusBreakdown[l.status]++;
+        }
+      });
+
+      return {
+        name: user.name,
+        totalLeads,
+        hotLeads,
+        todayVisits,
+        statusBreakdown, // 👈 for "View More"
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: results,
+    });
+  } catch (err) {
+    console.error("❌ getAllUsersLeadSummary error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error fetching lead summary",
+    });
+  }
+};
