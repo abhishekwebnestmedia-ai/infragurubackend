@@ -119,14 +119,162 @@
 
 
 // Author: Abhi
+
+
+// const express = require('express');
+// const dotenv = require('dotenv');
+// const connectDB = require('./config/db');
+// const morgan = require('morgan');
+// const cors = require('cors');
+// const { Server } = require("socket.io");
+// const http = require('http');
+// const path = require('path');
+
+// // -------------------------
+// // Load environment variables
+// // -------------------------
+// dotenv.config();
+// connectDB();
+
+// const app = express();
+// console.log('MONGO_URI:', process.env.MONGO_URI);
+
+// // -------------------------
+// // CORS configuration (allow only frontend)
+// // -------------------------
+// app.use(cors({
+//     origin: ["http://localhost:3001", "https://backend.infraguru.in"],
+
+//   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+//   allowedHeaders: ["Content-Type", "Authorization"],
+//   credentials: true
+// }));
+
+// // -------------------------
+// // Core middlewares
+// // -------------------------
+// app.use(express.json());
+// app.use(morgan('dev'));
+
+// // -------------------------
+// // Routes
+// // -------------------------
+// app.use('/api/auth', require('./routes/authroutes'));
+// app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// app.use("/api/groups", require("./routes/grouproute"));
+// app.use("/api/broadcasts", require("./routes/broadcastroute"));
+// app.use("/api/notifications", require("./routes/notificationRoutes"));
+// app.use('/api/lead', require('./routes/leadroute'));
+// app.use("/api/projects", require('./routes/projectRoutes'));
+
+// // Root route
+// app.get('/', (req, res) => {
+//   res.send('CRM backend server is running ✅');
+// });
+
+// // -------------------------
+// // HTTP server + Socket.IO setup
+// // -------------------------
+// const server = http.createServer(app);
+
+// const io = new Server(server, {
+//   cors: {
+//     origin: ["http://localhost:3001", "https://backend.infraguru.in"],
+
+//     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+//     allowedHeaders: ["Content-Type", "Authorization"],
+//     credentials: true,
+//   },
+// });
+
+// // Attach globally for controllers & services
+// app.set("io", io);
+// global.io = io;
+
+// // -------------------------
+// // SOCKET.IO Logic
+// // -------------------------
+
+// // In-memory map for tracking user roles (optional)
+// const onlineUsers = new Map();
+
+// io.on("connection", (socket) => {
+//   console.log("🟢 Socket connected:", socket.id);
+
+//   // ✅ When frontend connects, register user ID + role
+//   // Example (frontend): socket.emit("register_user", { userId, role });
+//   socket.on("register_user", ({ userId, role }) => {
+//     if (userId) {
+//       socket.join(userId); // Join private room for targeted emits
+//       onlineUsers.set(userId, { socketId: socket.id, role });
+//       console.log(`👤 ${role || "user"} registered socket: ${userId}`);
+//     }
+//   });
+
+//   socket.on("disconnect", () => {
+//     for (let [uid, info] of onlineUsers.entries()) {
+//       if (info.socketId === socket.id) {
+//         onlineUsers.delete(uid);
+//         console.log(`🔴 User disconnected: ${uid}`);
+//         break;
+//       }
+//     }
+//   });
+// });
+
+// // Make user map globally available (optional)
+// global.onlineUsers = onlineUsers;
+
+// // -------------------------
+// // Cron Service (Follow-Up Notifications)
+// // -------------------------
+// require("./services/followupCronService");
+
+// // -------------------------
+// // Test Socket Endpoint
+// // -------------------------
+// app.get("/test-socket", (req, res) => {
+//   if (global.io) {
+//     console.log("🧪 Manual test emit triggered");
+//     global.io.emit("followup_notification", {
+//       type: "Test",
+//       message: "Manual test notification from /test-socket endpoint",
+//     });
+//     return res.json({ success: true, message: "Test notification emitted" });
+//   }
+//   res.status(500).json({ success: false, message: "Socket.IO not initialized" });
+// });
+
+// // -------------------------
+// // Start Server
+// // -------------------------
+// const PORT = process.env.PORT || 5001;
+
+// server
+//   .listen(PORT, () => {
+//     console.log(`🚀 Server running on port ${PORT}`);
+//   })
+//   .on("error", (err) => {
+//     if (err.code === "EADDRINUSE") {
+//       console.warn(`⚠️ Port ${PORT} in use, trying ${PORT + 1}...`);
+//       server.listen(PORT + 1);
+//     } else {
+//       console.error("❌ Server error:", err);
+//     }
+//   });
+
+
+// Author: Abhi
 const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const morgan = require('morgan');
 const cors = require('cors');
-const { Server } = require("socket.io");
+const { Server } = require('socket.io');
 const http = require('http');
 const path = require('path');
+const Broadcast = require('./models/broadcast');
+const Group = require('./models/group');
 
 // -------------------------
 // Load environment variables
@@ -138,14 +286,13 @@ const app = express();
 console.log('MONGO_URI:', process.env.MONGO_URI);
 
 // -------------------------
-// CORS configuration (allow only frontend)
+// CORS configuration
 // -------------------------
 app.use(cors({
-    origin: ["http://localhost:3001", "https://backend.infraguru.in"],
-
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
+  origin: ['http://localhost:3001', 'https://backend.infraguru.in'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 }));
 
 // -------------------------
@@ -155,61 +302,140 @@ app.use(express.json());
 app.use(morgan('dev'));
 
 // -------------------------
-// Routes
+// API Routes
 // -------------------------
 app.use('/api/auth', require('./routes/authroutes'));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-app.use("/api/groups", require("./routes/grouproute"));
-app.use("/api/broadcasts", require("./routes/broadcastroute"));
-app.use("/api/notifications", require("./routes/notificationRoutes"));
+app.use('/api/groups', require('./routes/grouproute'));
+app.use('/api/broadcasts', require('./routes/broadcastroute'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/lead', require('./routes/leadroute'));
-app.use("/api/projects", require('./routes/projectRoutes'));
+app.use('/api/projects', require('./routes/projectRoutes'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Root route
 app.get('/', (req, res) => {
-  res.send('CRM backend server is running ✅');
+  res.send('✅ CRM backend server running successfully!');
 });
 
 // -------------------------
-// HTTP server + Socket.IO setup
+// HTTP + Socket.IO setup
 // -------------------------
 const server = http.createServer(app);
-
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3001", "https://backend.infraguru.in"],
-
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    origin: ['http://localhost:3001', 'https://backend.infraguru.in'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   },
 });
 
-// Attach globally for controllers & services
-app.set("io", io);
+app.set('io', io);
 global.io = io;
 
 // -------------------------
 // SOCKET.IO Logic
 // -------------------------
-
-// In-memory map for tracking user roles (optional)
 const onlineUsers = new Map();
 
-io.on("connection", (socket) => {
-  console.log("🟢 Socket connected:", socket.id);
+io.on('connection', (socket) => {
+  console.log('🟢 Socket connected:', socket.id);
 
-  // ✅ When frontend connects, register user ID + role
-  // Example (frontend): socket.emit("register_user", { userId, role });
-  socket.on("register_user", ({ userId, role }) => {
+  // ✅ Register user
+  socket.on('register_user', ({ userId, role }) => {
     if (userId) {
-      socket.join(userId); // Join private room for targeted emits
+      socket.join(userId);
       onlineUsers.set(userId, { socketId: socket.id, role });
-      console.log(`👤 ${role || "user"} registered socket: ${userId}`);
+      console.log(`👤 ${role || 'user'} registered with socket: ${userId}`);
     }
   });
 
-  socket.on("disconnect", () => {
+  // ✅ Join group room
+  socket.on('join_group', async ({ groupId }) => {
+    if (!groupId) return;
+    socket.join(groupId);
+    console.log(`👥 User joined group: ${groupId}`);
+
+    // Optional: Send group’s message history
+    try {
+      const messages = await Broadcast.find({ group: groupId })
+        .populate('createdBy', 'name email')
+        .sort({ createdAt: 1 });
+      socket.emit('group_messages', { groupId, messages });
+    } catch (err) {
+      console.error('❌ Error fetching group messages:', err.message);
+      socket.emit('group_messages', { groupId, messages: [] });
+    }
+
+    io.to(socket.id).emit('joined_group', { success: true, groupId });
+  });
+
+  // ✅ Leave group room
+  socket.on('leave_group', ({ groupId }) => {
+    if (groupId) {
+      socket.leave(groupId);
+      console.log(`🚪 User left group: ${groupId}`);
+      io.to(socket.id).emit('left_group', { success: true, groupId });
+    }
+  });
+
+  // ✅ Send broadcast message
+  socket.on('send_broadcast', async ({ groupId, message }) => {
+    try {
+      if (!groupId || !message?.trim()) {
+        return socket.emit('broadcast_sent', {
+          success: false,
+          message: 'Invalid group or message',
+        });
+      }
+
+      // Save broadcast to DB
+      const broadcast = await Broadcast.create({
+        group: groupId,
+        message,
+        createdBy: '69033b33e329c1fdf0728796', // 🔧 You can replace this with logged-in user from auth middleware
+      });
+
+      console.log(`📢 Broadcast sent to group ${groupId}: ${message}`);
+
+      // Emit to all users in group
+      io.to(groupId).emit('broadcast_received', {
+        groupId,
+        message,
+        createdBy: { name: 'Admin' },
+        createdAt: broadcast.createdAt,
+      });
+
+      socket.emit('broadcast_sent', { success: true, broadcast });
+    } catch (err) {
+      console.error('❌ Error sending broadcast:', err.message);
+      socket.emit('broadcast_sent', { success: false, error: err.message });
+    }
+  });
+
+  // ✅ Get messages of group
+  socket.on('get_group_messages', async ({ groupId }) => {
+    try {
+      if (!groupId) return;
+      const messages = await Broadcast.find({ group: groupId })
+        .populate('createdBy', 'name email')
+        .sort({ createdAt: 1 });
+
+      console.log(`📥 Sent ${messages.length} messages for group: ${groupId}`);
+      io.to(socket.id).emit('group_messages', { groupId, messages });
+    } catch (err) {
+      console.error('❌ Error fetching messages:', err.message);
+      io.to(socket.id).emit('group_messages', { groupId, messages: [] });
+    }
+  });
+
+  // 🧪 Test connection
+  socket.on('test_connection', (data) => {
+    console.log('🧪 Test from frontend:', data);
+    socket.emit('test_response', { success: true, echo: data });
+  });
+
+  // Handle disconnect
+  socket.on('disconnect', () => {
     for (let [uid, info] of onlineUsers.entries()) {
       if (info.socketId === socket.id) {
         onlineUsers.delete(uid);
@@ -220,43 +446,17 @@ io.on("connection", (socket) => {
   });
 });
 
-// Make user map globally available (optional)
 global.onlineUsers = onlineUsers;
 
 // -------------------------
-// Cron Service (Follow-Up Notifications)
+// Cron Service
 // -------------------------
-require("./services/followupCronService");
-
-// -------------------------
-// Test Socket Endpoint
-// -------------------------
-app.get("/test-socket", (req, res) => {
-  if (global.io) {
-    console.log("🧪 Manual test emit triggered");
-    global.io.emit("followup_notification", {
-      type: "Test",
-      message: "Manual test notification from /test-socket endpoint",
-    });
-    return res.json({ success: true, message: "Test notification emitted" });
-  }
-  res.status(500).json({ success: false, message: "Socket.IO not initialized" });
-});
+require('./services/followupCronService');
 
 // -------------------------
 // Start Server
 // -------------------------
 const PORT = process.env.PORT || 5001;
-
-server
-  .listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-  })
-  .on("error", (err) => {
-    if (err.code === "EADDRINUSE") {
-      console.warn(`⚠️ Port ${PORT} in use, trying ${PORT + 1}...`);
-      server.listen(PORT + 1);
-    } else {
-      console.error("❌ Server error:", err);
-    }
-  });
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
