@@ -141,7 +141,8 @@ console.log('MONGO_URI:', process.env.MONGO_URI);
 // CORS configuration (allow only frontend)
 // -------------------------
 app.use(cors({
-  origin: "http://localhost:3001",
+    origin: ["http://localhost:3001", "https://backend.infraguru.in"],
+
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
@@ -176,7 +177,8 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3001",
+    origin: ["http://localhost:3001", "https://backend.infraguru.in"],
+
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
