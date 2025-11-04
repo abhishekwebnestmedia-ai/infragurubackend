@@ -4,6 +4,8 @@ const Lead = require('../models/leadModel');
 const User = require('../models/user');
 const mongoose = require("mongoose");
 const LeadHistory = require("../models/leadHistory");
+const Notification = require("../models/notification");
+
 
 // Valid statuses for leads
 const validStatuses = [
@@ -46,18 +48,58 @@ function validateLeadData(data, isUpdate = false) {
 }
 
 // ================= CREATE LEAD =================
+// exports.createLead = async (req, res) => {
+//   try {
+//     const errorMsg = validateLeadData(req.body);
+//     if (errorMsg) return res.status(400).json({ success: false, message: errorMsg });
+
+//     const { assignedTo, transferTo, capturedBy, ...leadData } = req.body;
+
+//     const existingLead = await Lead.findOne({
+//       email: leadData.email,
+//       contactNumber: leadData.contactNumber
+//     });
+//     if (existingLead) return res.status(400).json({ success: false, message: "Lead with same email & contact exists" });
+
+//     const assignedUser = await resolveUser(assignedTo);
+//     const transferUser = await resolveUser(transferTo);
+//     const capturedUser = await resolveUser(capturedBy);
+
+//     const lead = new Lead({
+//       ...leadData,
+//       assignedTo: assignedUser?._id || null,
+//       transferTo: transferUser?._id || null,
+//       capturedBy: capturedUser?._id || null
+//     });
+
+//     await lead.save();
+//     const populatedLead = await lead.populate("assignedTo transferTo capturedBy", "name email");
+//     res.status(201).json({ success: true, data: populatedLead });
+
+//   } catch (err) {
+//     console.error("createLead error:", err);
+//     res.status(500).json({ success: false, message: "Server error creating lead" });
+//   }
+// };
+
+
 exports.createLead = async (req, res) => {
   try {
     const errorMsg = validateLeadData(req.body);
-    if (errorMsg) return res.status(400).json({ success: false, message: errorMsg });
+    if (errorMsg)
+      return res.status(400).json({ success: false, message: errorMsg });
 
     const { assignedTo, transferTo, capturedBy, ...leadData } = req.body;
 
+    // Prevent duplicate leads
     const existingLead = await Lead.findOne({
       email: leadData.email,
-      contactNumber: leadData.contactNumber
+      contactNumber: leadData.contactNumber,
     });
-    if (existingLead) return res.status(400).json({ success: false, message: "Lead with same email & contact exists" });
+    if (existingLead)
+      return res
+        .status(400)
+        .json({ success: false, message: "Lead with same email & contact exists" });
 
     const assignedUser = await resolveUser(assignedTo);
     const transferUser = await resolveUser(transferTo);
@@ -67,18 +109,62 @@ exports.createLead = async (req, res) => {
       ...leadData,
       assignedTo: assignedUser?._id || null,
       transferTo: transferUser?._id || null,
-      capturedBy: capturedUser?._id || null
+      capturedBy: capturedUser?._id || null,
     });
 
     await lead.save();
-    const populatedLead = await lead.populate("assignedTo transferTo capturedBy", "name email");
-    res.status(201).json({ success: true, data: populatedLead });
+    const populatedLead = await lead.populate(
+      "assignedTo transferTo capturedBy",
+      "name email"
+    );
 
+    // ✅ FOLLOW-UP NOTIFICATION ON CREATION
+    if (lead.status === "Follow Ups" && lead.followUp) {
+      const followUpTime = new Date(lead.followUp);
+      const formattedTime = followUpTime.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const msg = `🕐 Follow-up scheduled for ${lead.clientName} at ${formattedTime}. Requirement: ${lead.requirement || "N/A"}`;
+
+      // Prevent duplicates
+      const exists = await Notification.findOne({
+        type: "Lead",
+        itemId: lead._id,
+        message: msg,
+      });
+
+      if (!exists) {
+        await Notification.create({
+          type: "Lead",
+          itemId: lead._id,
+          message: msg,
+          category: "followup",
+          changedBy: req.user ? req.user.name : "System",
+        });
+
+        console.log(`📨 Follow-up notification created for ${lead.clientName}`);
+
+        // ✅ Emit to all connected users
+        if (global.io) {
+          global.io.emit("followup_notification", {
+            type: "Lead",
+            leadId: lead._id,
+            message: msg,
+          });
+        }
+      }
+    }
+
+    res.status(201).json({ success: true, data: populatedLead });
   } catch (err) {
     console.error("createLead error:", err);
-    res.status(500).json({ success: false, message: "Server error creating lead" });
+    res
+      .status(500)
+      .json({ success: false, message: "Server error creating lead" });
   }
 };
+
 
 // ================= BULK UPLOAD =================
 exports.bulkUploadLeads = async (req, res) => {
@@ -123,26 +209,7 @@ exports.bulkUploadLeads = async (req, res) => {
   }
 };
 
-// ================= GET LEADS =================
-// exports.getLeads = async (req, res) => {
-//   try {
-//     if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: "Unauthorized" });
 
-//     const userRole = req.user.role || "user";
-//     let filter = {};
-
-//     if (userRole !== "admin") {
-//       filter = { transferTo: req.user._id };
-//     }
-
-//     const leads = await Lead.find(filter).sort({ createdAt: -1 }).populate("assignedTo transferTo capturedBy", "name email");
-//     res.json({ success: true, role: userRole, count: leads.length, data: leads });
-
-//   } catch (err) {
-//     console.error("getLeads error:", err);
-//     res.status(500).json({ success: false, message: "Server error fetching leads" });
-//   }
-// };
 
 exports.getLeads = async (req, res) => {
   try {
@@ -193,30 +260,100 @@ exports.getLeadById = async (req, res) => {
 };
 
 // ================= UPDATE LEAD =================
+
+// exports.updateLead = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const updateData = { ...req.body };
+
+//     const lead = await Lead.findById(id);
+//     if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+
+//     for (const field of ['assignedTo', 'transferTo', 'capturedBy']) {
+//       if (updateData[field] !== undefined) {
+//         const user = await resolveUser(updateData[field]);
+//         if (!user) return res.status(400).json({ success: false, message: `Invalid ${field} user` });
+//         updateData[field] = user._id;
+//       }
+//     }
+
+//     const updatedLead = await Lead.findByIdAndUpdate(id, updateData, { new: true }).populate("assignedTo transferTo capturedBy", "name email");
+//     res.json({ success: true, message: "Lead updated successfully", data: updatedLead });
+
+//   } catch (err) {
+//     console.error("updateLead error:", err);
+//     res.status(500).json({ success: false, message: "Error updating lead" });
+//   }
+// };
+
+
 exports.updateLead = async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = { ...req.body };
 
     const lead = await Lead.findById(id);
-    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+    if (!lead)
+      return res.status(404).json({ success: false, message: "Lead not found" });
 
-    for (const field of ['assignedTo', 'transferTo', 'capturedBy']) {
+    const oldStatus = lead.status;
+
+    // ✅ Resolve user references if needed
+    for (const field of ["assignedTo", "transferTo", "capturedBy"]) {
       if (updateData[field] !== undefined) {
         const user = await resolveUser(updateData[field]);
-        if (!user) return res.status(400).json({ success: false, message: `Invalid ${field} user` });
+        if (!user)
+          return res
+            .status(400)
+            .json({ success: false, message: `Invalid ${field} user` });
         updateData[field] = user._id;
       }
     }
 
-    const updatedLead = await Lead.findByIdAndUpdate(id, updateData, { new: true }).populate("assignedTo transferTo capturedBy", "name email");
-    res.json({ success: true, message: "Lead updated successfully", data: updatedLead });
+    // ✅ Update lead
+    const updatedLead = await Lead.findByIdAndUpdate(id, updateData, {
+      new: true,
+    }).populate("assignedTo transferTo capturedBy", "name email");
 
+    // ✅ Send notification if status changed
+    if (updateData.status && updateData.status !== oldStatus) {
+      const msg = `📢 Lead "${lead.clientName}" status changed from "${oldStatus}" to "${updateData.status}".`;
+
+      await Notification.create({
+        type: "Lead",
+        itemId: lead._id,
+        message: msg,
+        category: "status_change",
+        changedBy: req.user ? req.user.name : "System",
+      });
+
+      console.log(`📨 Admin notified of status change: ${msg}`);
+
+      // ✅ Emit to Admins only
+      if (global.io) {
+        const admins = await User.find({ role: "admin" });
+
+        admins.forEach((admin) => {
+          global.io.to(admin._id.toString()).emit("admin_notification", {
+            type: "Lead",
+            leadId: lead._id,
+            message: msg,
+          });
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "Lead updated successfully",
+      data: updatedLead,
+    });
   } catch (err) {
     console.error("updateLead error:", err);
     res.status(500).json({ success: false, message: "Error updating lead" });
   }
 };
+
 
 // ================= DELETE LEAD =================
 exports.deleteLead = async (req, res) => {
@@ -420,76 +557,6 @@ exports.getDashboardLead = async (req, res) => {
   }
 };
 
-
-// exports.getUserLeadStats = async (req, res) => {
-//   try {
-//     const userName = req.params.userName; // ✅ Get from URL param
-
-//     if (!userName)
-//       return res.status(400).json({ success: false, message: "userName is required in URL" });
-
-//     // ✅ Find user by name (case-insensitive match)
-//     const user = await User.findOne({ name: { $regex: new RegExp(`^${userName}$`, "i") } });
-//     if (!user)
-//       return res.status(404).json({ success: false, message: "User not found" });
-
-//     // ✅ Group by month (IST timezone)
-//     const dateGroup = {
-//       $dateToString: { format: "%Y-%m", date: "$createdAt", timezone: "Asia/Kolkata" }
-//     };
-
-//     // ✅ Aggregate user stats
-//     const stats = await Lead.aggregate([
-//       {
-//         $match: {
-//           $or: [
-//             { capturedBy: user._id },
-//             { assignedTo: user._id }
-//           ]
-//         }
-//       },
-//       {
-//         $group: {
-//           _id: { date: dateGroup },
-//           capturedCount: {
-//             $sum: { $cond: [{ $eq: ["$capturedBy", user._id] }, 1, 0] }
-//           },
-//           assignedCount: {
-//             $sum: { $cond: [{ $eq: ["$assignedTo", user._id] }, 1, 0] }
-//           }
-//         }
-//       },
-//       { $sort: { "_id.date": 1 } }
-//     ]);
-
-//     // ✅ Format response
-//     const formatted = stats.map(s => ({
-//       date: s._id.date,
-//       captured: s.capturedCount,
-//       assigned: s.assignedCount
-//     }));
-
-//     // ✅ Calculate totals
-//     const totalCaptured = formatted.reduce((a, b) => a + b.captured, 0);
-//     const totalAssigned = formatted.reduce((a, b) => a + b.assigned, 0);
-
-//     return res.status(200).json({
-//       success: true,
-//       user: user.name,
-//       totalCaptured,
-//       totalAssigned,
-//       data: formatted
-//     });
-
-//   } catch (err) {
-//     console.error("❌ getUserLeadStats error:", err);
-//     res.status(500).json({
-//       success: false,
-//       message: "Server error fetching user lead stats",
-//       error: err.message
-//     });
-//   }
-// };
 
 
 
