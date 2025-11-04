@@ -265,6 +265,7 @@
 
 
 // Author: Abhi
+// Author: Abhi
 const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
@@ -273,6 +274,8 @@ const cors = require('cors');
 const { Server } = require('socket.io');
 const http = require('http');
 const path = require('path');
+
+// ✅ Correct model imports (adjusted file names)
 const Broadcast = require('./models/broadcast');
 const Group = require('./models/group');
 
@@ -288,12 +291,14 @@ console.log('MONGO_URI:', process.env.MONGO_URI);
 // -------------------------
 // CORS configuration
 // -------------------------
-app.use(cors({
-  origin: ['http://localhost:3001', 'https://backend.infraguru.in'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: ['http://localhost:3001', 'https://backend.infraguru.in'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  })
+);
 
 // -------------------------
 // Core middlewares
@@ -349,13 +354,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ✅ Join group room
+  // ✅ Join group
   socket.on('join_group', async ({ groupId }) => {
     if (!groupId) return;
     socket.join(groupId);
     console.log(`👥 User joined group: ${groupId}`);
 
-    // Optional: Send group’s message history
     try {
       const messages = await Broadcast.find({ group: groupId })
         .populate('createdBy', 'name email')
@@ -366,19 +370,19 @@ io.on('connection', (socket) => {
       socket.emit('group_messages', { groupId, messages: [] });
     }
 
-    io.to(socket.id).emit('joined_group', { success: true, groupId });
+    socket.emit('joined_group', { success: true, groupId });
   });
 
-  // ✅ Leave group room
+  // ✅ Leave group
   socket.on('leave_group', ({ groupId }) => {
     if (groupId) {
       socket.leave(groupId);
       console.log(`🚪 User left group: ${groupId}`);
-      io.to(socket.id).emit('left_group', { success: true, groupId });
+      socket.emit('left_group', { success: true, groupId });
     }
   });
 
-  // ✅ Send broadcast message
+  // ✅ Send broadcast
   socket.on('send_broadcast', async ({ groupId, message }) => {
     try {
       if (!groupId || !message?.trim()) {
@@ -388,16 +392,14 @@ io.on('connection', (socket) => {
         });
       }
 
-      // Save broadcast to DB
       const broadcast = await Broadcast.create({
         group: groupId,
         message,
-        createdBy: '69033b33e329c1fdf0728796', // 🔧 You can replace this with logged-in user from auth middleware
+        createdBy: '69033b33e329c1fdf0728796', // TODO: replace with logged-in user
       });
 
       console.log(`📢 Broadcast sent to group ${groupId}: ${message}`);
 
-      // Emit to all users in group
       io.to(groupId).emit('broadcast_received', {
         groupId,
         message,
@@ -412,7 +414,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ✅ Get messages of group
+  // ✅ Get group messages
   socket.on('get_group_messages', async ({ groupId }) => {
     try {
       if (!groupId) return;
@@ -421,14 +423,14 @@ io.on('connection', (socket) => {
         .sort({ createdAt: 1 });
 
       console.log(`📥 Sent ${messages.length} messages for group: ${groupId}`);
-      io.to(socket.id).emit('group_messages', { groupId, messages });
+      socket.emit('group_messages', { groupId, messages });
     } catch (err) {
       console.error('❌ Error fetching messages:', err.message);
-      io.to(socket.id).emit('group_messages', { groupId, messages: [] });
+      socket.emit('group_messages', { groupId, messages: [] });
     }
   });
 
-  // 🧪 Test connection
+  // 🧪 Test event
   socket.on('test_connection', (data) => {
     console.log('🧪 Test from frontend:', data);
     socket.emit('test_response', { success: true, echo: data });
@@ -454,9 +456,24 @@ global.onlineUsers = onlineUsers;
 require('./services/followupCronService');
 
 // -------------------------
-// Start Server
+// Start Server with auto port fallback
 // -------------------------
 const PORT = process.env.PORT || 5001;
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+
+function startServer(port) {
+  server
+    .listen(port, () => {
+      console.log(`🚀 Server running on port ${port}`);
+      console.log(`🌐 Access it at: https://backend.infraguru.in`);
+    })
+    .on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.warn(`⚠️ Port ${port} in use, trying ${port + 1}...`);
+        startServer(port + 1);
+      } else {
+        console.error('❌ Server error:', err);
+      }
+    });
+}
+
+startServer(PORT);
