@@ -293,7 +293,7 @@ console.log('MONGO_URI:', process.env.MONGO_URI);
 // -------------------------
 app.use(
   cors({
-    origin: ['http://localhost:3001', 'https://infracrm.infraguru.in/login','https://backend.infraguru.in'],
+    origin: ['http://localhost:3001', 'https://infracrm.infraguru.in', 'https://backend.infraguru.in'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -327,7 +327,7 @@ app.get('/', (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:3001', 'https://backend.infraguru.in'],
+    origin: ['http://localhost:3001', 'https://infracrm.infraguru.in', 'https://backend.infraguru.in'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -477,3 +477,5 @@ function startServer(port) {
 }
 
 startServer(PORT);
+
+
