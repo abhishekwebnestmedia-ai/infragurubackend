@@ -120,18 +120,69 @@ exports.login = async (req, res) => {
 
 
 
+// exports.getProfile = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.user.userId).select('-password');
+//     if (!user) return res.status(404).json({ message: 'User not found' });
+//     res.json(user);
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: 'Server error fetching profile' });
+//   }
+// };
+
+
 exports.getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select('-password');
+    const userId = req.user.userId;
+
+    // 🧍 Fetch the user (excluding password)
+    const user = await User.findById(userId).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json(user);
+
+    // 📊 Use aggregation to efficiently count leads
+    const stats = await Lead.aggregate([
+      {
+        $facet: {
+          capturedLeads: [
+            { $match: { capturedBy: user._id } },
+            { $count: "count" }
+          ],
+          closedLeads: [
+            { $match: { capturedBy: user._id, status: "Closer" } },
+            { $count: "count" }
+          ],
+          transferredLeads: [
+            { $match: { transferTo: user._id } },
+            { $count: "count" }
+          ]
+        }
+      }
+    ]);
+
+    // 🧮 Extract safe numbers even if no data found
+    const userStats = {
+      capturedLeads: stats[0].capturedLeads[0]?.count || 0,
+      closedLeads: stats[0].closedLeads[0]?.count || 0,
+      transferredLeads: stats[0].transferredLeads[0]?.count || 0
+    };
+
+    // 🧾 Combine everything into one object
+    const profile = {
+      ...user.toObject(),
+      stats: userStats
+    };
+
+    res.status(200).json({
+      message: "Profile fetched successfully",
+      profile
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error fetching profile' });
+    console.error("Error fetching profile:", err);
+    res.status(500).json({ message: "Server error fetching profile", error: err.message });
   }
 };
-
-
 
 
 
