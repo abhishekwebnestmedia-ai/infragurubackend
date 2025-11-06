@@ -1,4 +1,5 @@
 const User = require('../models/user');
+const Lead = require('../models/leadModel');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
@@ -168,25 +169,80 @@ exports.getAllUsers = async (req, res) => {
 };
 
 
+// exports.getTeams = async (req, res) => {
+//   try {
+//     const users = await User.find()
+//       .select("_id name email role phoneNumber designation address empid permissions") // ✅ Added permissions
+//       .sort({ createdAt: -1 });
+
+//     res.status(200).json({
+//       message: "Users fetched successfully",
+//       count: users.length,
+//       users,
+//     });
+
+//   } catch (err) {
+//     console.error("Error fetching teams:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
+
+
 exports.getTeams = async (req, res) => {
   try {
+    // Fetch all users
     const users = await User.find()
-      .select("_id name email role phoneNumber designation address empid permissions") // ✅ Added permissions
+      .select("_id name email role phoneNumber designation address empid permissions")
       .sort({ createdAt: -1 });
+
+    // Use MongoDB aggregation for efficiency
+    const stats = await Lead.aggregate([
+      {
+        $facet: {
+          closedLeads: [
+            { $match: { status: "Closer" } },
+            { $group: { _id: "$capturedBy", count: { $sum: 1 } } },
+          ],
+          transferredLeads: [
+            { $match: { transferTo: { $ne: null } } },
+            { $group: { _id: "$transferTo", count: { $sum: 1 } } },
+          ],
+        },
+      },
+      { $project: { closedLeads: 1, transferredLeads: 1 } },
+    ]);
+
+    // Convert aggregation results into quick lookup maps
+    const closedMap = {};
+    const transferredMap = {};
+
+    stats[0].closedLeads.forEach(item => {
+      closedMap[item._id?.toString()] = item.count;
+    });
+    stats[0].transferredLeads.forEach(item => {
+      transferredMap[item._id?.toString()] = item.count;
+    });
+
+    // Attach stats to each user
+    const usersWithStats = users.map(user => ({
+      ...user.toObject(),
+      stats: {
+        closedLeads: closedMap[user._id.toString()] || 0,
+        transferredLeads: transferredMap[user._id.toString()] || 0,
+      },
+    }));
 
     res.status(200).json({
       message: "Users fetched successfully",
-      count: users.length,
-      users,
+      count: usersWithStats.length,
+      users: usersWithStats,
     });
 
   } catch (err) {
     console.error("Error fetching teams:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
-
-
 
 exports.changeUserRole = async (req, res) => {
   try {
