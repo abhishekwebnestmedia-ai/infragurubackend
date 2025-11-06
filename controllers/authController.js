@@ -295,32 +295,96 @@ exports.getTeams = async (req, res) => {
   }
 };
 
+// exports.changeUserRole = async (req, res) => {
+//   try {
+//     const { userId } = req.params;       // ID of the user to update
+//     const { role } = req.body;           // new role
+
+//     // Only admin can change roles
+//     if (req.user.role !== 'admin') {
+//       return res.status(403).json({ message: 'You are not authorized to change roles' });
+//     }
+
+//     // Validate role
+//     const validRoles = ['admin', 'agent', 'user'];
+//     if (!validRoles.includes(role)) {
+//       return res.status(400).json({ message: 'Invalid role' });
+//     }
+
+//     const userToUpdate = await User.findById(userId);
+//     if (!userToUpdate) return res.status(404).json({ message: 'User not found' });
+
+//     userToUpdate.role = role;
+//     await userToUpdate.save();
+
+//     res.status(200).json({ message: 'Role updated successfully', user: userToUpdate });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: 'Server error' });
+//   }
+// };
+
 exports.changeUserRole = async (req, res) => {
   try {
-    const { userId } = req.params;       // ID of the user to update
-    const { role } = req.body;           // new role
+    const { userId } = req.params;
+    let { role } = req.body;
 
-    // Only admin can change roles
+    // 🧩 Only admins can change roles
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'You are not authorized to change roles' });
     }
 
-    // Validate role
-    const validRoles = ['admin', 'agent', 'user'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ message: 'Invalid role' });
+    // 🧩 Prevent self-demotion
+    if (userId === req.user.userId) {
+      return res.status(400).json({ message: 'Admins cannot change their own role' });
     }
 
-    const userToUpdate = await User.findById(userId);
-    if (!userToUpdate) return res.status(404).json({ message: 'User not found' });
+    // 🧩 Validate and normalize input
+    if (!role || typeof role !== 'string') {
+      return res.status(400).json({ message: 'Role must be a non-empty string' });
+    }
 
+    role = role.trim().toLowerCase();
+    const validRoles = ['admin', 'agent', 'user'];
+
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({
+        message: `Invalid role '${role}'. Allowed roles are: ${validRoles.join(', ')}`,
+      });
+    }
+
+    // 🧩 Find the target user
+    const userToUpdate = await User.findById(userId);
+    if (!userToUpdate) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const oldRole = userToUpdate.role;
+
+    // 🧩 No change needed
+    if (oldRole === role) {
+      return res.status(200).json({ message: `User already has role '${role}'`, user: userToUpdate });
+    }
+
+    // 🧩 Update role
     userToUpdate.role = role;
     await userToUpdate.save();
 
-    res.status(200).json({ message: 'Role updated successfully', user: userToUpdate });
+    // 🧩 Respond
+    res.status(200).json({
+      message: `Role updated successfully from '${oldRole}' to '${role}'`,
+      user: {
+        _id: userToUpdate._id,
+        name: userToUpdate.name,
+        email: userToUpdate.email,
+        oldRole,
+        newRole: userToUpdate.role,
+      },
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error changing user role:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
