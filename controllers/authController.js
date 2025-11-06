@@ -306,7 +306,7 @@ exports.changeUserRole = async (req, res) => {
     }
 
     // Validate role
-    const validRoles = ['admin', 'sales', 'user'];
+    const validRoles = ['admin', 'agent', 'user'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ message: 'Invalid role' });
     }
