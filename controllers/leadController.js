@@ -265,58 +265,13 @@ exports.bulkUploadLeads = async (req, res) => {
 
 
 
-exports.getLeads = async (req, res) => {
-  try {
-    if (!req.user || !req.user._id)
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-
-    const userRole = req.user.role || "user";
-    const isAgent = req.user.isAgent || false; 
-    let filter = {};
-
-    if (userRole !== "admin") {
-      filter = {
-        $or: [
-          { transferTo: req.user._id },
-          { assignedTo: req.user._id },
-          { capturedBy: req.user._id }
-        ]
-      };
-    }
-
-    const leads = await Lead.find(filter)
-      .sort({ createdAt: -1 })
-      .populate("assignedTo transferTo capturedBy", "name email");
-
-    res.json({
-      success: true,
-      role: userRole,
-      isAgent,
-      count: leads.length,
-      data: leads
-    });
-
-  } catch (err) {
-    console.error("getLeads error:", err);
-    res.status(500).json({ success: false, message: "Server error fetching leads" });
-  }
-};
-
-
 // exports.getLeads = async (req, res) => {
 //   try {
-//     if (!req.user || !req.user._id) {
+//     if (!req.user || !req.user._id)
 //       return res.status(401).json({ success: false, message: "Unauthorized" });
-//     }
 
 //     const userRole = req.user.role || "user";
-//     const isAgent = req.user.isAgent || false;
-
-//     // Pagination
-//     const page = parseInt(req.query.page) || 1; // default page 1
-//     const limit = parseInt(req.query.limit) || 10; // default 10 leads per page
-//     const skip = (page - 1) * limit;
-
+//     const isAgent = req.user.isAgent || false; 
 //     let filter = {};
 
 //     if (userRole !== "admin") {
@@ -329,22 +284,14 @@ exports.getLeads = async (req, res) => {
 //       };
 //     }
 
-//     const totalLeads = await Lead.countDocuments(filter); // total leads for this filter
-
 //     const leads = await Lead.find(filter)
 //       .sort({ createdAt: -1 })
-//       .skip(skip)
-//       .limit(limit)
 //       .populate("assignedTo transferTo capturedBy", "name email");
 
 //     res.json({
 //       success: true,
 //       role: userRole,
 //       isAgent,
-//       page,
-//       limit,
-//       totalLeads,
-//       totalPages: Math.ceil(totalLeads / limit),
 //       count: leads.length,
 //       data: leads
 //     });
@@ -354,6 +301,44 @@ exports.getLeads = async (req, res) => {
 //     res.status(500).json({ success: false, message: "Server error fetching leads" });
 //   }
 // };
+
+exports.getLeads = async (req, res) => {
+  try {
+    if (!req.user || !req.user._id)
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const userRole = req.user.role || "user";
+    const isAgent = req.user.isAgent || false;
+
+    let filter = {};
+
+    if (userRole === "admin") {
+      // Admin can see all leads
+      filter = {};
+    } else {
+      // Regular user/agent sees only leads assigned to them
+      filter = { transferTo: req.user._id };
+    }
+
+    const leads = await Lead.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("assignedTo transferTo capturedBy", "name email");
+
+    res.json({
+      success: true,
+      role: userRole,
+      isAgent,
+      count: leads.length,
+      data: leads,
+    });
+
+  } catch (err) {
+    console.error("getLeads error:", err);
+    res.status(500).json({ success: false, message: "Server error fetching leads" });
+  }
+};
+
+
 
 
 exports.getLeadById = async (req, res) => {
