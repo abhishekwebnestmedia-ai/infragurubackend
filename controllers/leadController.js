@@ -575,27 +575,55 @@ exports.bulkAssignLeads = async (req, res) => {
 //   }
 // };
 
+// exports.getLeadsByUserName = async (req, res) => {
+//   try {
+//     const { username } = req.query;
+//     if (!username)
+//       return res.status(400).json({ success: false, message: "username query param required" });
+
+//     // ✅ Added .select() to include isAgent
+//     const user = await User.findOne({ name: username }).select("name email isAgent");
+//     if (!user)
+//       return res.status(404).json({ success: false, message: "User not found" });
+
+//     const leads = await Lead.find({ assignedTo: user._id })
+//       .populate("assignedTo transferTo capturedBy", "name email");
+
+//     // ✅ Added isAgent in response
+//     res.json({ success: true, isAgent: user.isAgent, count: leads.length, data: leads });
+//   } catch (err) {
+//     console.error("getLeadsByUserName error:", err);
+//     res.status(500).json({ success: false, message: "Error fetching leads" });
+//   }
+// };
+
 exports.getLeadsByUserName = async (req, res) => {
   try {
     const { username } = req.query;
     if (!username)
       return res.status(400).json({ success: false, message: "username query param required" });
 
-    // ✅ Added .select() to include isAgent
+    // Find user and include isAgent
     const user = await User.findOne({ name: username }).select("name email isAgent");
     if (!user)
       return res.status(404).json({ success: false, message: "User not found" });
 
-    const leads = await Lead.find({ assignedTo: user._id })
-      .populate("assignedTo transferTo capturedBy", "name email");
+    // ✅ Find leads where this user is in transferTo
+    const leads = await Lead.find({ transferTo: user._id })
+      .populate("assignedTo transferTo capturedBy", "name email isAgent");
 
-    // ✅ Added isAgent in response
-    res.json({ success: true, isAgent: user.isAgent, count: leads.length, data: leads });
+    res.json({
+      success: true,
+      isAgent: user.isAgent,
+      count: leads.length,
+      data: leads
+    });
   } catch (err) {
     console.error("getLeadsByUserName error:", err);
     res.status(500).json({ success: false, message: "Error fetching leads" });
   }
 };
+
 
 
 // ================= GET LEADS BY CAPTURED BY =================
