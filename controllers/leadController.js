@@ -741,37 +741,8 @@ exports.getDashboardLead = async (req, res) => {
 
 
 
-exports.getUnassign = async (req, res) => {
-  try {
-    console.log("➡️ Fetching unassigned leads (based on assignedTo)...");
 
-    const unassignedLeads = await Lead.find({
-      $or: [
-        { assignedTo: { $exists: false } },
-        { assignedTo: null },
-        { assignedTo: "" },
-      ],
-    })
-      .sort({ createdAt: -1 })
-      .populate("assignedTo transferTo capturedBy", "name email");
 
-    console.log(`✅ Found ${unassignedLeads.length} unassigned leads`);
-
-    res.status(200).json({
-      success: true,
-      count: unassignedLeads.length,
-      message: "Unassigned leads fetched successfully (based on assignedTo)",
-      leads: unassignedLeads,
-    });
-  } catch (error) {
-    console.error("❌ Error fetching unassigned leads:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error fetching unassigned leads",
-      error: error.message,
-    });
-  }
-};
 
 // Get user lead statistics for dashboard
 exports.getUserLeadStats = async (req, res) => {
@@ -862,6 +833,41 @@ exports.getUserLeadStats = async (req, res) => {
       success: false,
       message: "Error fetching user lead statistics",
       error: error.message
+    });
+  }
+};
+
+
+
+exports.getUnassignedLeads = async (req, res) => {
+  try {
+    console.log("➡️ Fetching unassigned leads (based on assignedTo)...");
+
+    const unassignedLeads = await Lead.find({
+      $or: [
+        { assignedTo: { $exists: false } },
+        { assignedTo: null },
+        { assignedTo: "" },
+      ],
+    })
+      .sort({ createdAt: -1 })
+      .populate("assignedTo transferTo capturedBy", "name email");
+
+    console.log(`✅ Found ${unassignedLeads.length} unassigned leads`);
+
+    res.status(200).json({
+      success: true,
+      count: unassignedLeads.length,
+      message: "Unassigned leads fetched successfully (based on assignedTo)",
+      leads: unassignedLeads,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching unassigned leads:", error.message);
+    console.error(error.stack); // 👈 print full error
+    res.status(500).json({
+      success: false,
+      message: "Server error fetching unassigned leads",
+      error: error.message,
     });
   }
 };
