@@ -243,7 +243,7 @@ exports.getTeams = async (req, res) => {
   try {
     // Fetch all users
     const users = await User.find()
-      .select("_id name email role phoneNumber designation address empid permissions")
+      .select("_id name email role phoneNumber designation address empid permissions isAgent")
       .sort({ createdAt: -1 });
 
     // Use MongoDB aggregation for efficiency
