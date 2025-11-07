@@ -745,150 +745,26 @@ exports.getDashboardLead = async (req, res) => {
 
 
 
-exports.getUserLeadStats = async (req, res) => {
-  try {
-    const userName = req.params.userName; // ✅ Get from URL param
-
-    if (!userName) {
-      return res.status(400).json({
-        success: false,
-        message: "userName is required in URL",
-      });
-    }
-
-    // ✅ Find user by name (case-insensitive)
-    const user = await User.findOne({
-      name: { $regex: new RegExp(`^${userName}$`, "i") },
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    // ✅ Group by day (IST timezone)
-    const dateGroup = {
-      $dateToString: {
-        format: "%Y-%m-%d", // ✅ <-- changed from "%Y-%m" to "%Y-%m-%d"
-        date: "$createdAt",
-        timezone: "Asia/Kolkata",
-      },
-    };
-
-    // ✅ Aggregate user stats (include transferTo)
-    const stats = await Lead.aggregate([
-      {
-        $match: {
-          $or: [
-            { capturedBy: user._id },
-            { assignedTo: user._id },
-            { transferTo: user._id },
-          ],
-        },
-      },
-      {
-        $group: {
-          _id: { date: dateGroup },
-          capturedCount: {
-            $sum: {
-              $cond: [{ $eq: ["$capturedBy", user._id] }, 1, 0],
-            },
-          },
-          assignedCount: {
-            $sum: {
-              $cond: [
-                {
-                  $or: [
-                    { $eq: ["$assignedTo", user._id] },
-                    { $eq: ["$transferTo", user._id] },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-        },
-      },
-      { $sort: { "_id.date": 1 } },
-    ]);
-
-    // ✅ Format response data
-    const formatted = stats.map((s) => ({
-      date: s._id.date,
-      captured: s.capturedCount,
-      assigned: s.assignedCount,
-    }));
-
-    // ✅ Calculate totals
-    const totalCaptured = formatted.reduce((a, b) => a + b.captured, 0);
-    const totalAssigned = formatted.reduce((a, b) => a + b.assigned, 0);
-
-    // ✅ Send final response
-    return res.status(200).json({
-      success: true,
-      user: user.name,
-      totalCaptured,
-      totalAssigned,
-      data: formatted,
-    });
-  } catch (err) {
-    console.error("❌ getUserLeadStats error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Server error fetching user lead stats",
-      error: err.message,
-    });
-  }
-};
-
-
-
-
-
-// exports.getUnassignedLeads = async (req, res) => {
-//   try {
-//     // Fetch leads where assignedTo is either null, empty string, or not set
-//     const unassignedLeads = await Lead.find({
-//       $or: [
-//         { assignedTo: { $exists: false } },
-//         { assignedTo: null },
-//         { assignedTo: "" },
-//       ],
-//     }).sort({ createdAt: -1 });
-
-//     res.status(200).json({
-//       success: true,
-//       count: unassignedLeads.length,
-//       message: "Unassigned leads fetched successfully",
-//       leads: unassignedLeads,
-//     });
-//   } catch (error) {
-//     console.error("❌ Error fetching unassigned leads:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Server error fetching unassigned leads",
-//     });
-//   }
-// };
-
-
 exports.getUnassignedLeads = async (req, res) => {
   try {
+    console.log("➡️ Fetching unassigned leads (based on assignedTo)...");
+
     const unassignedLeads = await Lead.find({
       $or: [
-        { transferTo: { $exists: false } },
-        { transferTo: null },
-        { transferTo: "" },
+        { assignedTo: { $exists: false } },
+        { assignedTo: null },
+        { assignedTo: "" },
       ],
-    }).sort({ createdAt: -1 });
+    })
+      .sort({ createdAt: -1 })
+      .populate("assignedTo transferTo capturedBy", "name email");
+
+    console.log(`✅ Found ${unassignedLeads.length} unassigned leads`);
 
     res.status(200).json({
       success: true,
       count: unassignedLeads.length,
-      message: "Unassigned leads fetched successfully",
+      message: "Unassigned leads fetched successfully (based on assignedTo)",
       leads: unassignedLeads,
     });
   } catch (error) {
@@ -896,6 +772,7 @@ exports.getUnassignedLeads = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error fetching unassigned leads",
+      error: error.message,
     });
   }
 };
