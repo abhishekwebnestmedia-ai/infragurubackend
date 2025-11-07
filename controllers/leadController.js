@@ -609,8 +609,6 @@ exports.getLeadsByUserName = async (req, res) => {
   }
 };
 
-
-
 // ================= GET LEADS BY CAPTURED BY =================
 exports.getLeadsByCapturedBy = async (req, res) => {
   try {
@@ -639,8 +637,6 @@ exports.getLeadChangeHistory = async (req, res) => {
     res.status(500).json({ success: false, message: "Error fetching lead history" });
   }
 };
-
-
 
 // ================= TEAM ASSIGNED SUMMARY =================
 exports.getTeamAssigned = async (req, res) => {
@@ -745,7 +741,7 @@ exports.getDashboardLead = async (req, res) => {
 
 
 
-exports.getUnassignedLeads = async (req, res) => {
+exports.getUnassign = async (req, res) => {
   try {
     console.log("➡️ Fetching unassigned leads (based on assignedTo)...");
 
@@ -773,6 +769,99 @@ exports.getUnassignedLeads = async (req, res) => {
       success: false,
       message: "Server error fetching unassigned leads",
       error: error.message,
+    });
+  }
+};
+
+// Get user lead statistics for dashboard
+exports.getUserLeadStats = async (req, res) => {
+  try {
+    const { userName } = req.params;
+    
+    if (!userName) {
+      return res.status(400).json({
+        success: false,
+        message: "Username parameter is required"
+      });
+    }
+
+    // Find the user
+    const user = await User.findOne({ name: userName }).select("name email role isAgent");
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Get leads for the user
+    const leads = await Lead.find({
+      $or: [
+        { assignedTo: user._id },
+        { transferTo: user._id },
+        { capturedBy: user._id }
+      ]
+    });
+
+    // Calculate statistics
+    const statusCounts = {
+      "Follow Ups": 0,
+      "Not Connected": 0,
+      "Prospect": 0,
+      "Closer": 0
+    };
+
+    leads.forEach(lead => {
+      if (statusCounts.hasOwnProperty(lead.status)) {
+        statusCounts[lead.status]++;
+      }
+    });
+
+    // Get recent activity
+    const recentActivity = await LeadHistory.find({
+      leadId: { $in: leads.map(l => l._id) }
+    })
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .populate("leadId", "clientName status");
+
+    // Calculate conversion rates
+    const totalLeads = leads.length;
+    const convertedLeads = leads.filter(l => l.status === "Closer").length;
+    const conversionRate = totalLeads ? ((convertedLeads / totalLeads) * 100).toFixed(2) : 0;
+
+    const response = {
+      success: true,
+      data: {
+        user: {
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          isAgent: user.isAgent
+        },
+        stats: {
+          totalLeads,
+          statusBreakdown: statusCounts,
+          conversionRate: parseFloat(conversionRate),
+          recentActivity: recentActivity.map(activity => ({
+            date: activity.createdAt,
+            leadName: activity.leadId.clientName,
+            status: activity.leadId.status,
+            changes: activity.changes
+          }))
+        }
+      }
+    };
+
+    res.status(200).json(response);
+
+  } catch (error) {
+    console.error("❌ getUserLeadStats error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching user lead statistics",
+      error: error.message
     });
   }
 };
