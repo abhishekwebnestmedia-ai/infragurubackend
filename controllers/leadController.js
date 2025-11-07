@@ -847,3 +847,29 @@ exports.getUserLeadStats = async (req, res) => {
 
 
 
+
+exports.getUnassignedLeads = async (req, res) => {
+  try {
+    // Fetch leads where assignedTo is either null, empty string, or not set
+    const unassignedLeads = await Lead.find({
+      $or: [
+        { assignedTo: { $exists: false } },
+        { assignedTo: null },
+        { assignedTo: "" },
+      ],
+    }).sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: unassignedLeads.length,
+      message: "Unassigned leads fetched successfully",
+      leads: unassignedLeads,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching unassigned leads:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error fetching unassigned leads",
+    });
+  }
+};
