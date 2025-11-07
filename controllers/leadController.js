@@ -302,6 +302,43 @@ exports.bulkUploadLeads = async (req, res) => {
 //   }
 // };
 
+// exports.getLeads = async (req, res) => {
+//   try {
+//     if (!req.user || !req.user._id)
+//       return res.status(401).json({ success: false, message: "Unauthorized" });
+
+//     const userRole = req.user.role || "user";
+//     const isAgent = req.user.isAgent || false;
+
+//     let filter = {};
+
+//     if (userRole === "admin") {
+//       // Admin can see all leads
+//       filter = {};
+//     } else {
+//       // Regular user/agent sees only leads assigned to them
+//       filter = { transferTo: req.user._id };
+//     }
+
+//     const leads = await Lead.find(filter)
+//       .sort({ createdAt: -1 })
+//       .populate("assignedTo transferTo capturedBy", "name email");
+
+//     res.json({
+//       success: true,
+//       role: userRole,
+//       isAgent,
+//       count: leads.length,
+//       data: leads,
+//     });
+
+//   } catch (err) {
+//     console.error("getLeads error:", err);
+//     res.status(500).json({ success: false, message: "Server error fetching leads" });
+//   }
+// };
+
+
 exports.getLeads = async (req, res) => {
   try {
     if (!req.user || !req.user._id)
@@ -310,19 +347,26 @@ exports.getLeads = async (req, res) => {
     const userRole = req.user.role || "user";
     const isAgent = req.user.isAgent || false;
 
-    let filter = {};
+    let leads = [];
 
     if (userRole === "admin") {
       // Admin can see all leads
-      filter = {};
+      leads = await Lead.find({})
+        .sort({ createdAt: -1 })
+        .populate("assignedTo transferTo capturedBy", "name email");
     } else {
-      // Regular user/agent sees only leads assigned to them
-      filter = { transferTo: req.user._id };
-    }
+      // Step 1: Try fetching leads where transferTo = current user
+      leads = await Lead.find({ transferTo: req.user._id })
+        .sort({ createdAt: -1 })
+        .populate("assignedTo transferTo capturedBy", "name email");
 
-    const leads = await Lead.find(filter)
-      .sort({ createdAt: -1 })
-      .populate("assignedTo transferTo capturedBy", "name email");
+      // Step 2: If none found, fallback to assignedTo = current user
+      if (leads.length === 0) {
+        leads = await Lead.find({ assignedTo: req.user._id })
+          .sort({ createdAt: -1 })
+          .populate("assignedTo transferTo capturedBy", "name email");
+      }
+    }
 
     res.json({
       success: true,

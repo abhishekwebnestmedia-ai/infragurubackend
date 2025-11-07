@@ -11,6 +11,7 @@ router.post('/bulk-upload', authMiddleware, leadController.bulkUploadLeads);
 // Get all leads (with populated assigned user details)
 router.get('/getlead', authMiddleware, leadController.getLeads);
 router.get('/unassigned',authMiddleware, leadController.getUnassignedLeads);
+
 router.get('/getlead/:id', authMiddleware, leadController.getLeadById);
 // Update a lead
 router.put('/update/:id', authMiddleware, leadController.updateLead);
