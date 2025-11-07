@@ -839,6 +839,40 @@ exports.getUserLeadStats = async (req, res) => {
 
 
 
+// exports.getUnassignedLeads = async (req, res) => {
+//   try {
+//     console.log("➡️ Fetching unassigned leads (based on assignedTo)...");
+
+//     const unassignedLeads = await Lead.find({
+//       $or: [
+//         { assignedTo: { $exists: false } },
+//         { assignedTo: null },
+//         { assignedTo: "" },
+//       ],
+//     })
+//       .sort({ createdAt: -1 })
+//       .populate("assignedTo transferTo capturedBy", "name email");
+
+//     console.log(`✅ Found ${unassignedLeads.length} unassigned leads`);
+
+//     res.status(200).json({
+//       success: true,
+//       count: unassignedLeads.length,
+//       message: "Unassigned leads fetched successfully (based on assignedTo)",
+//       leads: unassignedLeads,
+//     });
+//   } catch (error) {
+//     console.error("❌ Error fetching unassigned leads:", error.message);
+//     console.error(error.stack); // 👈 print full error
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error fetching unassigned leads",
+//       error: error.message,
+//     });
+//   }
+// };
+
+
 exports.getUnassignedLeads = async (req, res) => {
   try {
     console.log("➡️ Fetching unassigned leads (based on assignedTo)...");
@@ -846,8 +880,7 @@ exports.getUnassignedLeads = async (req, res) => {
     const unassignedLeads = await Lead.find({
       $or: [
         { assignedTo: { $exists: false } },
-        { assignedTo: null },
-        { assignedTo: "" },
+        { assignedTo: null }
       ],
     })
       .sort({ createdAt: -1 })
@@ -862,8 +895,7 @@ exports.getUnassignedLeads = async (req, res) => {
       leads: unassignedLeads,
     });
   } catch (error) {
-    console.error("❌ Error fetching unassigned leads:", error.message);
-    console.error(error.stack); // 👈 print full error
+    console.error("❌ Error fetching unassigned leads:", error);
     res.status(500).json({
       success: false,
       message: "Server error fetching unassigned leads",
