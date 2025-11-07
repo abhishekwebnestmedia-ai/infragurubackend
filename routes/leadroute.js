@@ -27,7 +27,7 @@ router.get('/dashLeads', authMiddleware,  leadController.getDashboardLead);
 
 router.post("/dash/:userName", authMiddleware, leadController.getUserLeadStats);
 
-
+router.delete('/delete', authMiddleware, leadController.deletebulk);
 // Delete a lead
 router.delete('/delete/:id', authMiddleware, leadController.deleteLead);
 router.get('/userbasedlead',authMiddleware, leadController.getLeadsByUserName);

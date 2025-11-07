@@ -271,7 +271,7 @@ exports.getLeads = async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
 
     const userRole = req.user.role || "user";
-    const isAgent = req.user.isAgent || false; // ✅ get isAgent
+    const isAgent = req.user.isAgent || false; 
     let filter = {};
 
     if (userRole !== "admin") {
@@ -291,7 +291,7 @@ exports.getLeads = async (req, res) => {
     res.json({
       success: true,
       role: userRole,
-      isAgent, // ✅ add isAgent to response
+      isAgent,
       count: leads.length,
       data: leads
     });
@@ -302,6 +302,58 @@ exports.getLeads = async (req, res) => {
   }
 };
 
+
+// exports.getLeads = async (req, res) => {
+//   try {
+//     if (!req.user || !req.user._id) {
+//       return res.status(401).json({ success: false, message: "Unauthorized" });
+//     }
+
+//     const userRole = req.user.role || "user";
+//     const isAgent = req.user.isAgent || false;
+
+//     // Pagination
+//     const page = parseInt(req.query.page) || 1; // default page 1
+//     const limit = parseInt(req.query.limit) || 10; // default 10 leads per page
+//     const skip = (page - 1) * limit;
+
+//     let filter = {};
+
+//     if (userRole !== "admin") {
+//       filter = {
+//         $or: [
+//           { transferTo: req.user._id },
+//           { assignedTo: req.user._id },
+//           { capturedBy: req.user._id }
+//         ]
+//       };
+//     }
+
+//     const totalLeads = await Lead.countDocuments(filter); // total leads for this filter
+
+//     const leads = await Lead.find(filter)
+//       .sort({ createdAt: -1 })
+//       .skip(skip)
+//       .limit(limit)
+//       .populate("assignedTo transferTo capturedBy", "name email");
+
+//     res.json({
+//       success: true,
+//       role: userRole,
+//       isAgent,
+//       page,
+//       limit,
+//       totalLeads,
+//       totalPages: Math.ceil(totalLeads / limit),
+//       count: leads.length,
+//       data: leads
+//     });
+
+//   } catch (err) {
+//     console.error("getLeads error:", err);
+//     res.status(500).json({ success: false, message: "Server error fetching leads" });
+//   }
+// };
 
 
 exports.getLeadById = async (req, res) => {
@@ -435,6 +487,34 @@ exports.deleteLead = async (req, res) => {
     res.status(500).json({ success: false, message: "Error deleting lead" });
   }
 };
+
+
+// DELETE /api/leads?ids=123,456,789
+exports.deletebulk = async (req, res) => {
+  try {
+    // Get comma-separated IDs from query or JSON body
+    const ids = req.query.ids || req.body.ids;
+    if (!ids || !ids.length) {
+      return res.status(400).json({ success: false, message: "No lead IDs provided" });
+    }
+
+    // Convert string IDs to array if needed
+    const leadIds = Array.isArray(ids) ? ids : ids.split(',');
+
+    // Delete leads in bulk
+    const result = await Lead.deleteMany({ _id: { $in: leadIds } });
+
+    res.json({
+      success: true,
+      message: `${result.deletedCount} lead(s) deleted successfully`
+    });
+
+  } catch (err) {
+    console.error("deleteLeads error:", err);
+    res.status(500).json({ success: false, message: "Error deleting leads" });
+  }
+};
+
 
 // ================= ASSIGN/REASSIGN LEAD =================
 exports.assignLead = async (req, res) => {
