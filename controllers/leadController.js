@@ -211,12 +211,67 @@ exports.bulkUploadLeads = async (req, res) => {
 
 
 
+// exports.getLeads = async (req, res) => {
+//   try {
+//     if (!req.user || !req.user._id)
+//       return res.status(401).json({ success: false, message: "Unauthorized" });
+
+//     const userRole = req.user.role || "user";
+//     let filter = {};
+
+//     if (userRole !== "admin") {
+//       filter = {
+//         $or: [
+//           { transferTo: req.user._id },
+//           { assignedTo: req.user._id },
+//           { capturedBy: req.user._id }
+//         ]
+//       };
+//     }
+
+//     const leads = await Lead.find(filter)
+//       .sort({ createdAt: -1 })
+//       .populate("assignedTo transferTo capturedBy", "name email");
+
+//     res.json({
+//       success: true,
+//       role: userRole,
+//       count: leads.length,
+//       data: leads
+//     });
+
+//   } catch (err) {
+//     console.error("getLeads error:", err);
+//     res.status(500).json({ success: false, message: "Server error fetching leads" });
+//   }
+// };
+
+
+
+
+
+// ================= GET LEAD BY ID =================
+// exports.getLeadById = async (req, res) => {
+//   try {
+//     const lead = await Lead.findById(req.params.id).populate("assignedTo transferTo capturedBy", "name email");
+//     if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+//     res.json({ success: true, data: lead });
+//   } catch (err) {
+//     console.error("getLeadById error:", err);
+//     res.status(500).json({ success: false, message: "Error fetching lead" });
+//   }
+// };
+
+
+
+
 exports.getLeads = async (req, res) => {
   try {
     if (!req.user || !req.user._id)
       return res.status(401).json({ success: false, message: "Unauthorized" });
 
     const userRole = req.user.role || "user";
+    const isAgent = req.user.isAgent || false; // ✅ get isAgent
     let filter = {};
 
     if (userRole !== "admin") {
@@ -236,6 +291,7 @@ exports.getLeads = async (req, res) => {
     res.json({
       success: true,
       role: userRole,
+      isAgent, // ✅ add isAgent to response
       count: leads.length,
       data: leads
     });
@@ -247,17 +303,30 @@ exports.getLeads = async (req, res) => {
 };
 
 
-// ================= GET LEAD BY ID =================
+
 exports.getLeadById = async (req, res) => {
   try {
-    const lead = await Lead.findById(req.params.id).populate("assignedTo transferTo capturedBy", "name email");
+    if (!req.user || !req.user._id)
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const isAgent = req.user.isAgent || false; // ✅ get isAgent
+    const lead = await Lead.findById(req.params.id)
+      .populate("assignedTo transferTo capturedBy", "name email");
     if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
-    res.json({ success: true, data: lead });
+
+    res.json({
+      success: true,
+      isAgent, // ✅ add isAgent to response
+      data: lead
+    });
   } catch (err) {
     console.error("getLeadById error:", err);
     res.status(500).json({ success: false, message: "Error fetching lead" });
   }
 };
+
+
+
 
 // ================= UPDATE LEAD =================
 
