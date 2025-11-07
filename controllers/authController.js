@@ -132,15 +132,69 @@ exports.login = async (req, res) => {
 // };
 
 
+// exports.getProfile = async (req, res) => {
+//   try {
+//     const userId = req.user.userId;
+
+//     // 🧍 Fetch the user (excluding password)
+//     const user = await User.findById(userId).select('-password');
+//     if (!user) return res.status(404).json({ message: 'User not found' });
+
+//     // 📊 Use aggregation to efficiently count leads
+//     const stats = await Lead.aggregate([
+//       {
+//         $facet: {
+//           capturedLeads: [
+//             { $match: { capturedBy: user._id } },
+//             { $count: "count" }
+//           ],
+//           closedLeads: [
+//             { $match: { capturedBy: user._id, status: "Closer" } },
+//             { $count: "count" }
+//           ],
+//           transferredLeads: [
+//             { $match: { transferTo: user._id } },
+//             { $count: "count" }
+//           ]
+//         }
+//       }
+//     ]);
+
+//     // 🧮 Extract safe numbers even if no data found
+//     const userStats = {
+//       capturedLeads: stats[0].capturedLeads[0]?.count || 0,
+//       closedLeads: stats[0].closedLeads[0]?.count || 0,
+//       transferredLeads: stats[0].transferredLeads[0]?.count || 0
+//     };
+
+//     // 🧾 Combine everything into one object
+//     const profile = {
+//       ...user.toObject(),
+//       stats: userStats
+//     };
+
+//     res.status(200).json({
+//       message: "Profile fetched successfully",
+//       profile
+//     });
+
+//   } catch (err) {
+//     console.error("Error fetching profile:", err);
+//     res.status(500).json({ message: "Server error fetching profile", error: err.message });
+//   }
+// };
+
+
 exports.getProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
 
     // 🧍 Fetch the user (excluding password)
-    const user = await User.findById(userId).select('-password');
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const user = await User.findById(userId).select("-password");
+    if (!user)
+      return res.status(404).json({ message: "User not found" });
 
-    // 📊 Use aggregation to efficiently count leads
+    // 📊 Use aggregation to efficiently count different lead types
     const stats = await Lead.aggregate([
       {
         $facet: {
@@ -155,19 +209,24 @@ exports.getProfile = async (req, res) => {
           transferredLeads: [
             { $match: { transferTo: user._id } },
             { $count: "count" }
+          ],
+          assignedLeads: [
+            { $match: { assignedTo: user._id } },
+            { $count: "count" }
           ]
         }
       }
     ]);
 
-    // 🧮 Extract safe numbers even if no data found
+    // 🧮 Extract safe numbers (fallback to 0 if not found)
     const userStats = {
       capturedLeads: stats[0].capturedLeads[0]?.count || 0,
       closedLeads: stats[0].closedLeads[0]?.count || 0,
-      transferredLeads: stats[0].transferredLeads[0]?.count || 0
+      transferredLeads: stats[0].transferredLeads[0]?.count || 0,
+      assignedLeads: stats[0].assignedLeads[0]?.count || 0
     };
 
-    // 🧾 Combine everything into one object
+    // 🧾 Combine everything into one response
     const profile = {
       ...user.toObject(),
       stats: userStats
@@ -180,10 +239,12 @@ exports.getProfile = async (req, res) => {
 
   } catch (err) {
     console.error("Error fetching profile:", err);
-    res.status(500).json({ message: "Server error fetching profile", error: err.message });
+    res.status(500).json({
+      message: "Server error fetching profile",
+      error: err.message
+    });
   }
 };
-
 
 
 exports.logout = async (req, res) => {
