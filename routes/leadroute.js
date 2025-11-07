@@ -14,6 +14,8 @@ router.post('/bulk-upload', authMiddleware, leadController.bulkUploadLeads);
 
 // Get all leads (with populated assigned user details)
 router.get('/getlead', authMiddleware, leadController.getLeads);
+router.get('/unassigned', authMiddleware, leadController.getUnassignedLeads);
+
 router.get('/getlead/:id', authMiddleware, leadController.getLeadById);
 
 // Update a lead
@@ -33,7 +35,6 @@ router.delete('/delete/:id', authMiddleware, leadController.deleteLead);
 router.get('/userbasedlead',authMiddleware, leadController.getLeadsByUserName);
 router.get('/captured', authMiddleware, leadController.getLeadsByCapturedBy);
 router.get('/:leadId/history', authMiddleware, leadController.getLeadChangeHistory);
-router.get('/unassigned', authMiddleware, leadController.getUnassignedLeads);
 
 module.exports = router;
 
