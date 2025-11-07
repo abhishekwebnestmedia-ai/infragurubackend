@@ -9,7 +9,7 @@ const nodemailer = require('nodemailer');
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, phoneNumber, address, empid, designation } = req.body;
+    const { name, email, password, phoneNumber, address, empid, designation,isAgent } = req.body;
 
 
     let missingFields = [];
@@ -46,7 +46,7 @@ exports.register = async (req, res) => {
 
     // --- Save user ---
     const user = new User({
-      name, email, password: hashedPassword, phoneNumber,   // ✅ Added
+      name, email, password: hashedPassword, phoneNumber,  isAgent: isAgent || false,  // ✅ Added
       // ✅ Added
       designation, address, empid,
     });
@@ -611,6 +611,43 @@ exports.updateUserPermissions = async (req, res) => {
   }
 };
 
+
+
+// ✅ Toggle or update agent status
+exports.updateAgentStatus = async (req, res) => {
+  try {
+    // Only admin can change agent status
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Only admins can change agent status.' });
+    }
+
+    const { userId, isAgent } = req.body;
+
+    if (!userId || typeof isAgent !== 'boolean') {
+      return res.status(400).json({ message: 'Missing or invalid fields (userId, isAgent).' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { isAgent },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Agent status updated successfully.`,
+      user
+    });
+
+  } catch (error) {
+    console.error('❌ updateAgentStatus error:', error);
+    res.status(500).json({ success: false, message: 'Server error updating agent status.' });
+  }
+};
 
 
 
