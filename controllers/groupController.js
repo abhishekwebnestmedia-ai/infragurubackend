@@ -148,20 +148,119 @@ exports.createGroup = async (req, res) => {
 };
 
 // ✅ Get groups visible to the logged-in user + latest broadcast message
+
+// exports.getAllGroups = async (req, res) => {
+//   try {
+//     let query = {};
+
+//     // 🧭 If user is not admin, only show groups where user is a member
+//     if (!req.user || req.user.role !== "admin") {
+//       query = { members: req.user._id };
+//     }
+
+//     // 📦 Fetch groups with creator & members populated
+//     const groups = await Group.find(query)
+//       .populate("createdBy", "name email role")
+//       .populate("members", "name email role")
+//       .lean(); // convert Mongoose docs → plain JS objects for better performance
+
+//     if (!groups || groups.length === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         message:
+//           req.user?.role === "admin"
+//             ? "No groups found"
+//             : "You are not part of any group",
+//       });
+//     }
+
+//     // 🕐 Attach latest broadcast message to each group
+//     const groupsWithBroadcasts = await Promise.all(
+//       groups.map(async (group) => {
+//         const latestBroadcast = await Broadcast.findOne({ group: group._id })
+//           .sort({ createdAt: -1 }) // get most recent
+//           .populate("createdBy", "name email role")
+//           .lean();
+
+//         return {
+//           ...group,
+//           latestBroadcast: latestBroadcast
+//             ? {
+//                 message: latestBroadcast.message,
+//                 attachmentUrl: latestBroadcast.attachmentUrl,
+//                 attachmentType: latestBroadcast.attachmentType,
+//                 createdBy: latestBroadcast.createdBy,
+//                 createdAt: latestBroadcast.createdAt,
+//               }
+//             : null, // No messages yet
+//         };
+//       })
+//     );
+
+//     // ✅ Send final response
+//     res.status(200).json({
+//       success: true,
+//       count: groupsWithBroadcasts.length,
+//       groups: groupsWithBroadcasts,
+//     });
+//   } catch (error) {
+//     console.error("❌ Error fetching groups:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error while fetching groups",
+//       error: error.message,
+//     });
+//   }
+// };
+
+
 exports.getAllGroups = async (req, res) => {
   try {
+    // 🧠 1️⃣ Ensure "All" group exists
+    let allGroup = await Group.findOne({ name: "All" });
+
+    // Create it if missing
+    if (!allGroup) {
+      // Fetch all users
+      const allUsers = await User.find({}, "_id");
+
+      allGroup = await Group.create({
+        name: "All",
+        members: allUsers.map((u) => u._id),
+        createdBy: req.user?._id || null,
+      });
+
+      console.log("✅ Default 'All' group created automatically");
+    } else {
+      // 🧩 Keep members synced with all users
+      const allUsers = await User.find({}, "_id");
+      const allUserIds = allUsers.map((u) => u._id.toString());
+
+      // Find missing users
+      const missingUsers = allUserIds.filter(
+        (uid) => !allGroup.members.map((m) => m.toString()).includes(uid)
+      );
+
+      if (missingUsers.length > 0) {
+        allGroup.members.push(...missingUsers);
+        await allGroup.save();
+        console.log(`🔄 Synced ${missingUsers.length} new users into 'All' group`);
+      }
+    }
+
+    // 🧭 2️⃣ Build query for fetching groups
     let query = {};
 
-    // 🧭 If user is not admin, only show groups where user is a member
     if (!req.user || req.user.role !== "admin") {
+      // Non-admins: only groups they are in (but "All" will always be included anyway)
       query = { members: req.user._id };
     }
 
-    // 📦 Fetch groups with creator & members populated
+    // 📦 3️⃣ Fetch all groups (including "All")
     const groups = await Group.find(query)
       .populate("createdBy", "name email role")
       .populate("members", "name email role")
-      .lean(); // convert Mongoose docs → plain JS objects for better performance
+      .lean();
 
     if (!groups || groups.length === 0) {
       return res.status(404).json({
@@ -173,11 +272,11 @@ exports.getAllGroups = async (req, res) => {
       });
     }
 
-    // 🕐 Attach latest broadcast message to each group
+    // 🕐 4️⃣ Attach latest broadcast message to each group
     const groupsWithBroadcasts = await Promise.all(
       groups.map(async (group) => {
         const latestBroadcast = await Broadcast.findOne({ group: group._id })
-          .sort({ createdAt: -1 }) // get most recent
+          .sort({ createdAt: -1 })
           .populate("createdBy", "name email role")
           .lean();
 
@@ -191,12 +290,12 @@ exports.getAllGroups = async (req, res) => {
                 createdBy: latestBroadcast.createdBy,
                 createdAt: latestBroadcast.createdAt,
               }
-            : null, // No messages yet
+            : null,
         };
       })
     );
 
-    // ✅ Send final response
+    // ✅ 5️⃣ Respond
     res.status(200).json({
       success: true,
       count: groupsWithBroadcasts.length,
@@ -211,6 +310,7 @@ exports.getAllGroups = async (req, res) => {
     });
   }
 };
+
 
 
 // ✅ Update Group (Admin only)
