@@ -5,7 +5,7 @@ const { createGroup, getAllGroups, updateGroup } = require("../controllers/group
 
 router.post("/", authMiddleware, createGroup);
 router.get("/", authMiddleware, getAllGroups);
-router.put("/update/:groupId", authMiddleware, updateGroup);
+router.put("/:groupId", authMiddleware, updateGroup);
 
 module.exports = router;
 
