@@ -211,3 +211,72 @@ exports.getAllGroups = async (req, res) => {
     });
   }
 };
+
+
+// ✅ Update Group (Admin only)
+exports.updateGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { name, members } = req.body;
+
+    // 🔒 Only admin can update groups
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied — only admins can update groups",
+      });
+    }
+
+    // 🔍 Check if group exists
+    let group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({
+        success: false,
+        message: "Group not found",
+      });
+    }
+
+    // 🧩 Update group name if provided
+    if (name && typeof name === "string") {
+      group.name = name.trim();
+    }
+
+    // 🧩 Update group members if provided
+    if (Array.isArray(members) && members.length > 0) {
+      // Match users by name (case-insensitive)
+      const matchedUsers = await User.find({
+        name: { $in: members.map((n) => new RegExp(`^${n}$`, "i")) },
+      });
+
+      if (matchedUsers.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No valid users found with the provided names",
+        });
+      }
+
+      group.members = matchedUsers.map((u) => u._id);
+    }
+
+    // 💾 Save updates
+    await group.save();
+
+    // 🔍 Populate before sending response
+    group = await group
+      .populate("createdBy", "name email role")
+      .populate("members", "name email role");
+
+    res.status(200).json({
+      success: true,
+      message: "Group updated successfully",
+      group,
+    });
+  } catch (error) {
+    console.error("❌ Error updating group:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while updating group",
+      error: error.message,
+    });
+  }
+};
