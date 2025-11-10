@@ -219,9 +219,7 @@ exports.getAllGroups = async (req, res) => {
     // 🧠 1️⃣ Ensure "All" group exists
     let allGroup = await Group.findOne({ name: "All" });
 
-    // Create it if missing
     if (!allGroup) {
-      // Fetch all users
       const allUsers = await User.find({}, "_id");
 
       allGroup = await Group.create({
@@ -232,11 +230,8 @@ exports.getAllGroups = async (req, res) => {
 
       console.log("✅ Default 'All' group created automatically");
     } else {
-      // 🧩 Keep members synced with all users
       const allUsers = await User.find({}, "_id");
       const allUserIds = allUsers.map((u) => u._id.toString());
-
-      // Find missing users
       const missingUsers = allUserIds.filter(
         (uid) => !allGroup.members.map((m) => m.toString()).includes(uid)
       );
@@ -248,19 +243,27 @@ exports.getAllGroups = async (req, res) => {
       }
     }
 
-    // 🧭 2️⃣ Build query for fetching groups
+    // 🧭 2️⃣ Build query
     let query = {};
-
     if (!req.user || req.user.role !== "admin") {
-      // Non-admins: only groups they are in (but "All" will always be included anyway)
       query = { members: req.user._id };
     }
 
     // 📦 3️⃣ Fetch all groups (including "All")
-    const groups = await Group.find(query)
+    let groups = await Group.find(query)
       .populate("createdBy", "name email role")
       .populate("members", "name email role")
       .lean();
+
+    // 🧩 Ensure "All" group is included
+    const hasAllGroup = groups.some((g) => g.name === "All");
+    if (!hasAllGroup) {
+      const populatedAllGroup = await Group.findOne({ name: "All" })
+        .populate("createdBy", "name email role")
+        .populate("members", "name email role")
+        .lean();
+      if (populatedAllGroup) groups.unshift(populatedAllGroup);
+    }
 
     if (!groups || groups.length === 0) {
       return res.status(404).json({
@@ -272,7 +275,7 @@ exports.getAllGroups = async (req, res) => {
       });
     }
 
-    // 🕐 4️⃣ Attach latest broadcast message to each group
+    // 🕐 4️⃣ Attach latest broadcast message
     const groupsWithBroadcasts = await Promise.all(
       groups.map(async (group) => {
         const latestBroadcast = await Broadcast.findOne({ group: group._id })
@@ -295,7 +298,7 @@ exports.getAllGroups = async (req, res) => {
       })
     );
 
-    // ✅ 5️⃣ Respond
+    // ✅ 5️⃣ Send response
     res.status(200).json({
       success: true,
       count: groupsWithBroadcasts.length,
