@@ -214,12 +214,12 @@ exports.getAllGroups = async (req, res) => {
 
 
 // ✅ Update Group (Admin only)
+
 exports.updateGroup = async (req, res) => {
   try {
     const { groupId } = req.params;
     const { name, members } = req.body;
 
-    // 🔒 Only admin can update groups
     if (!req.user || req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -227,7 +227,6 @@ exports.updateGroup = async (req, res) => {
       });
     }
 
-    // 🔍 Check if group exists
     let group = await Group.findById(groupId);
     if (!group) {
       return res.status(404).json({
@@ -236,14 +235,11 @@ exports.updateGroup = async (req, res) => {
       });
     }
 
-    // 🧩 Update group name if provided
     if (name && typeof name === "string") {
       group.name = name.trim();
     }
 
-    // 🧩 Update group members if provided
     if (Array.isArray(members) && members.length > 0) {
-      // Match users by name (case-insensitive)
       const matchedUsers = await User.find({
         name: { $in: members.map((n) => new RegExp(`^${n}$`, "i")) },
       });
@@ -258,11 +254,10 @@ exports.updateGroup = async (req, res) => {
       group.members = matchedUsers.map((u) => u._id);
     }
 
-    // 💾 Save updates
     await group.save();
 
-    // 🔍 Populate before sending response
-    group = await group
+    // ✅ Repopulate after saving
+    group = await Group.findById(group._id)
       .populate("createdBy", "name email role")
       .populate("members", "name email role");
 
