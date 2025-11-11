@@ -15,7 +15,7 @@ const notificationSchema = new mongoose.Schema(
     type: { type: String, enum: ["Lead", "Inventory"], required: true },
     itemId: { type: mongoose.Schema.Types.ObjectId, required: true },
     message: { type: String, required: true },
-    category: { type: String, enum: ["followup", "status_change"], required: true },
+    category: { type: String, enum: ["followUp", "status_change"], required: true },
     changedBy: { type: String },
     createdAt: { type: Date, default: getISTDate },
   },
