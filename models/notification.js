@@ -22,7 +22,7 @@ const notificationSchema = new mongoose.Schema(
   { versionKey: false }
 );
 
-notificationSchema.index({ type: 1, itemId: 1, message: 1 }, { unique: true });
+notificationSchema.index({ type: 1, itemId: 1, message: 1 });
 
 // ✅ Convert createdAt to IST before sending
 notificationSchema.methods.toJSON = function () {
