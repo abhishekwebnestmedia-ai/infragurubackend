@@ -120,69 +120,6 @@ exports.login = async (req, res) => {
 
 
 
-// exports.getProfile = async (req, res) => {
-//   try {
-//     const user = await User.findById(req.user.userId).select('-password');
-//     if (!user) return res.status(404).json({ message: 'User not found' });
-//     res.json(user);
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: 'Server error fetching profile' });
-//   }
-// };
-
-
-// exports.getProfile = async (req, res) => {
-//   try {
-//     const userId = req.user.userId;
-
-//     // 🧍 Fetch the user (excluding password)
-//     const user = await User.findById(userId).select('-password');
-//     if (!user) return res.status(404).json({ message: 'User not found' });
-
-//     // 📊 Use aggregation to efficiently count leads
-//     const stats = await Lead.aggregate([
-//       {
-//         $facet: {
-//           capturedLeads: [
-//             { $match: { capturedBy: user._id } },
-//             { $count: "count" }
-//           ],
-//           closedLeads: [
-//             { $match: { capturedBy: user._id, status: "Closer" } },
-//             { $count: "count" }
-//           ],
-//           transferredLeads: [
-//             { $match: { transferTo: user._id } },
-//             { $count: "count" }
-//           ]
-//         }
-//       }
-//     ]);
-
-//     // 🧮 Extract safe numbers even if no data found
-//     const userStats = {
-//       capturedLeads: stats[0].capturedLeads[0]?.count || 0,
-//       closedLeads: stats[0].closedLeads[0]?.count || 0,
-//       transferredLeads: stats[0].transferredLeads[0]?.count || 0
-//     };
-
-//     // 🧾 Combine everything into one object
-//     const profile = {
-//       ...user.toObject(),
-//       stats: userStats
-//     };
-
-//     res.status(200).json({
-//       message: "Profile fetched successfully",
-//       profile
-//     });
-
-//   } catch (err) {
-//     console.error("Error fetching profile:", err);
-//     res.status(500).json({ message: "Server error fetching profile", error: err.message });
-//   }
-// };
 
 
 exports.getProfile = async (req, res) => {
@@ -281,23 +218,6 @@ exports.getAllUsers = async (req, res) => {
 };
 
 
-// exports.getTeams = async (req, res) => {
-//   try {
-//     const users = await User.find()
-//       .select("_id name email role phoneNumber designation address empid permissions") // ✅ Added permissions
-//       .sort({ createdAt: -1 });
-
-//     res.status(200).json({
-//       message: "Users fetched successfully",
-//       count: users.length,
-//       users,
-//     });
-
-//   } catch (err) {
-//     console.error("Error fetching teams:", err);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
 
 
 exports.getTeams = async (req, res) => {
@@ -356,34 +276,6 @@ exports.getTeams = async (req, res) => {
   }
 };
 
-// exports.changeUserRole = async (req, res) => {
-//   try {
-//     const { userId } = req.params;       // ID of the user to update
-//     const { role } = req.body;           // new role
-
-//     // Only admin can change roles
-//     if (req.user.role !== 'admin') {
-//       return res.status(403).json({ message: 'You are not authorized to change roles' });
-//     }
-
-//     // Validate role
-//     const validRoles = ['admin', 'agent', 'user'];
-//     if (!validRoles.includes(role)) {
-//       return res.status(400).json({ message: 'Invalid role' });
-//     }
-
-//     const userToUpdate = await User.findById(userId);
-//     if (!userToUpdate) return res.status(404).json({ message: 'User not found' });
-
-//     userToUpdate.role = role;
-//     await userToUpdate.save();
-
-//     res.status(200).json({ message: 'Role updated successfully', user: userToUpdate });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: 'Server error' });
-//   }
-// };
 
 exports.changeUserRole = async (req, res) => {
   try {
