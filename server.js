@@ -223,7 +223,9 @@ global.onlineUsers = onlineUsers;
 // -------------------------
 // ✅ Cron Service
 // -------------------------
-require('./services/followupCronService');
+// require('./services/followupCronService');
+const initializeFollowUpCron = require('./services/followupCronService');
+initializeFollowUpCron();
 
 // -------------------------
 // ✅ Start Server with Auto Port Fallback
