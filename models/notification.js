@@ -3,7 +3,7 @@
 
 const mongoose = require("mongoose");
 
-// ✅ Helper for IST time
+// ✅ Helper for IST time 
 function getISTDate() {
   const now = new Date();
   const istOffset = 5.5 * 60 * 60 * 1000;
@@ -16,7 +16,7 @@ const notificationSchema = new mongoose.Schema(
     itemId: { type: mongoose.Schema.Types.ObjectId, required: true },
     message: { type: String, required: true },
     category: { type: String, enum: ["followUp", "status_change"], required: true },
-    changedBy: { type: String },
+     changedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     createdAt: { type: Date, default: getISTDate },
   },
   { versionKey: false }
@@ -47,6 +47,11 @@ notificationSchema.post("save", function (doc) {
   } catch (err) {
     console.error("❌ Error auto-emitting notification:", err);
   }
+});
+
+notificationSchema.pre(/^find/, function (next) {
+  this.populate("changedBy", "name email role");
+  next();
 });
 
 module.exports = mongoose.model("Notification", notificationSchema);
