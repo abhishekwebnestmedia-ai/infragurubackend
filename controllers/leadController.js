@@ -849,3 +849,58 @@ exports.getUnassignedLeads = async (req, res) => {
     });
   }
 };
+
+
+
+exports.createFrom99acres = async (req, res) => {
+  try {
+    const { secret } = req.query;
+
+    // 🔒 Validate secret key
+    if (secret !== process.env.LEAD_WEBHOOK_SECRET) {
+      return res.status(403).json({ success: false, message: "Unauthorized source" });
+    }
+
+    const data = req.body || {};
+
+    // 🧠 Helper for safe defaults
+    const safe = (val, fallback) =>
+      val && val.toString().trim() !== "" ? val : fallback;
+
+    // ✅ Prepare lead data according to your Lead schema
+    const leadData = {
+      clientName: safe(data.customerName || data.name, "Unknown Lead"),
+      contactNumber: safe(data.contactNumber || data.phone, "0000000000"),
+      email: safe(data.email, "unknown@example.com"),
+      status: safe(data.status, "Not Connected"),
+      source: "99acres",
+      budget: safe(data.budget, "Not Provided"),
+      location: safe(data.city || data.location, "N/A"),
+      projects: safe(data.project, "N/A"),
+      remark: `Lead from 99acres. Project: ${safe(
+        data.project,
+        "N/A"
+      )}, City: ${safe(data.city, "N/A")}, Budget: ${safe(
+        data.budget,
+        "Not mentioned"
+      )}`,
+      capturedBy: null, // since webhook, no user assigned
+    };
+
+    // ✅ Save new lead
+    const lead = new Lead(leadData);
+    await lead.save();
+
+    res.status(201).json({
+      success: true,
+      message: "✅ Lead received and saved successfully",
+      data: lead,
+    });
+  } catch (err) {
+    console.error("❌ 99acres webhook error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error while saving 99acres lead",
+    });
+  }
+};

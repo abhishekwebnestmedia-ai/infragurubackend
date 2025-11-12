@@ -6,6 +6,8 @@ const authMiddleware = require("../middleware/authmiddleware");
 
 // Create new lead
 router.post('/create', authMiddleware, leadController.createLead);
+router.post('/webhook/99acres', leadController.createFrom99acres);
+
 // Bulk upload leads
 router.post('/bulk-upload', authMiddleware, leadController.bulkUploadLeads);
 // Get all leads (with populated assigned user details)
