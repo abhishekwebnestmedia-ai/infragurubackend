@@ -852,12 +852,16 @@ exports.getUnassignedLeads = async (req, res) => {
 
 
 
+
 exports.createFrom99acres = async (req, res) => {
   try {
     const { secret } = req.query;
 
-    // 🔒 Validate secret key
-    if (secret !== process.env.LEAD_WEBHOOK_SECRET) {
+    // 🔒 Hardcoded secret key (for testing)
+    const LEAD_WEBHOOK_SECRET = "infragurusuperkey";
+
+    // 🔐 Validate secret key
+    if (secret !== LEAD_WEBHOOK_SECRET) {
       return res.status(403).json({ success: false, message: "Unauthorized source" });
     }
 
@@ -904,3 +908,6 @@ exports.createFrom99acres = async (req, res) => {
     });
   }
 };
+
+
+
