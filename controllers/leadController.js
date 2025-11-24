@@ -858,7 +858,7 @@ exports.createFrom99acres = async (req, res) => {
     const { secret } = req.query;
 
     // 🔒 Hardcoded secret key (for testing)
-    const LEAD_WEBHOOK_SECRET = "infragurusuperkey";
+    const LEAD_WEBHOOK_SECRET = "webnestmediasuperkey";
 
     // 🔐 Validate secret key
     if (secret !== LEAD_WEBHOOK_SECRET) {

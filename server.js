@@ -26,7 +26,7 @@ console.log('🔗 MONGO_URI:', process.env.MONGO_URI);
 // -------------------------
 const allowedOrigins = [
   'http://localhost:3001',
-  'https://infracrm.infraguru.in',
+  'https://nesthubi.webnestmedia.online',
   'https://nesthub.webnestmedia.online/',
 ];
 
