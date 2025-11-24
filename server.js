@@ -27,7 +27,7 @@ console.log('🔗 MONGO_URI:', process.env.MONGO_URI);
 const allowedOrigins = [
   'http://localhost:3001',
   'https://infracrm.infraguru.in',
-  'https://backend.infraguru.in',
+  'https://nesthub.webnestmedia.online/',
 ];
 
 app.use(
@@ -236,7 +236,7 @@ function startServer(port) {
   server
     .listen(port, () => {
       console.log(`🚀 Server running on port ${port}`);
-      console.log(`🌐 Access it at: https://backend.infraguru.in`);
+      console.log(`🌐 Access it at: https://nesthub.webnestmedia.online/`);
     })
     .on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
@@ -249,5 +249,7 @@ function startServer(port) {
 }
 
 startServer(PORT);
+
+
 
 

@@ -344,17 +344,17 @@ exports.changeUserRole = async (req, res) => {
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'fullstackdeveloperabhi1@gmail.com',
-    pass: 'geoe oqaq ngth kpfm'
+    user: 'webnestmediacrm@gmail.com',
+    pass: 'dfvh ewny oqak kgtl'
   }
 });
 
 
 
 async function sendResetEmail(email, token) {
-  const resetUrl = `https://realtyxpo.in/reset-password?token=${token}`;
+  const resetUrl = `https://nesthub.webnestmedia.online/reset-password?token=${token}`;
   const mailOptions = {
-    from: '"Realtyxpo" <fullstackdeveloperabhi1@gmail.com>',
+    from: '"Demoproject" <webnestmediacrm@gmail.com>',
     to: email,
     subject: 'Password Reset Request',
     html: `<p>You requested a password reset. Click <a href="${resetUrl}">here</a> to set a new password.</p>`
@@ -382,7 +382,7 @@ exports.forgotPassword = async (req, res) => {
     await user.save();
 
     // ✅ Send raw token in email link
-    const resetUrl = `https://realtyxpo.in/reset-password?token=${resetToken}`;
+    const resetUrl = `https://nesthub.webnestmedia.online/reset-password?token=${resetToken}`;
     const mailOptions = {
       from: '"Realtyxpo" <fullstackdeveloperabhi1@gmail.com>',
       to: email,
