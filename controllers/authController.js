@@ -627,6 +627,85 @@ const transporter = nodemailer.createTransport({
 // =============================
 // REGISTER USER (WITH APPROVAL)
 // =============================
+// exports.register = async (req, res) => {
+//   try {
+//     const { name, email, password, phoneNumber, address, empid, designation, isAgent } = req.body;
+
+//     let missingFields = [];
+//     if (!name) missingFields.push('Name is missing');
+//     if (!email) missingFields.push('Email is missing');
+//     if (!password) missingFields.push('Password is missing');
+
+//     if (missingFields.length > 0) {
+//       return res.status(400).json({ message: missingFields.join(', ') });
+//     }
+
+//     if (name.length < 3)
+//       return res.status(400).json({ message: 'Name must be at least 3 characters' });
+
+//     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//     if (!emailRegex.test(email))
+//       return res.status(400).json({ message: 'Invalid email format' });
+
+//     if (password.length < 6)
+//       return res.status(400).json({ message: 'Password must be at least 6 characters' });
+
+//     const existingUser = await User.findOne({ email });
+//     if (existingUser)
+//       return res.status(400).json({ message: 'User already exists' });
+
+//     // Hash password
+//     const hashedPassword = await bcrypt.hash(password, 10);
+
+//     // SAVE USER WITH APPROVAL REQUIRED
+//     const user = new User({
+//       name,
+//       email,
+//       password: hashedPassword,
+//       phoneNumber,
+//       isAgent: isAgent || false,
+//       designation,
+//       address,
+//       empid,
+//       isApproved: false
+//     });
+
+//     await user.save();
+
+//     // Create approval token
+//     const approvalToken = jwt.sign(
+//       { userId: user._id },
+//       process.env.JWT_SECRET,
+//       { expiresIn: '48h' }
+//     );
+
+//     const approvalUrl = `${process.env.BACKEND_URL}/api/auth/approve-user/${approvalToken}`;
+
+//     // Send approval email to admin
+//     await transporter.sendMail({
+//       from: `"CRM System" <webnestmediacrm@gmail.com>`,
+//       to: "webnestmediacrm@gmail.com",
+//       subject: "New User Waiting for Approval",
+//       html: `
+//         <h3>New User Registration</h3>
+//         <p>Name: ${user.name}</p>
+//         <p>Email: ${user.email}</p>
+//         <a href="${approvalUrl}" style="padding:10px;background:green;color:white;text-decoration:none;">Approve User</a>
+//       `
+//     });
+
+//     res.status(201).json({
+//       message: 'User registered successfully. Pending admin approval.'
+//     });
+
+//   } catch (err) {
+//     console.error('Register Error:', err);
+//     res.status(500).json({ message: 'Server error' });
+//   }
+// };
+
+
+
 exports.register = async (req, res) => {
   try {
     const { name, email, password, phoneNumber, address, empid, designation, isAgent } = req.body;
@@ -654,53 +733,29 @@ exports.register = async (req, res) => {
     if (existingUser)
       return res.status(400).json({ message: 'User already exists' });
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // SAVE USER WITH APPROVAL REQUIRED
     const user = new User({
       name,
       email,
       password: hashedPassword,
       phoneNumber,
-      isAgent: isAgent || false,
       designation,
       address,
       empid,
-      isApproved: false
+      isAgent: isAgent || false,
+      isApproved: false // *** IMPORTANT ***
     });
 
     await user.save();
 
-    // Create approval token
-    const approvalToken = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: '48h' }
-    );
-
-    const approvalUrl = `${process.env.BACKEND_URL}/api/auth/approve-user/${approvalToken}`;
-
-    // Send approval email to admin
-    await transporter.sendMail({
-      from: `"CRM System" <webnestmediacrm@gmail.com>`,
-      to: "webnestmediacrm@gmail.com",
-      subject: "New User Waiting for Approval",
-      html: `
-        <h3>New User Registration</h3>
-        <p>Name: ${user.name}</p>
-        <p>Email: ${user.email}</p>
-        <a href="${approvalUrl}" style="padding:10px;background:green;color:white;text-decoration:none;">Approve User</a>
-      `
-    });
-
     res.status(201).json({
-      message: 'User registered successfully. Pending admin approval.'
+      message: "User registered successfully. Pending admin approval."
     });
 
   } catch (err) {
-    console.error('Register Error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Register Error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -739,59 +794,99 @@ exports.approveUser = async (req, res) => {
 // =============================
 // LOGIN (BLOCK IF NOT APPROVED)
 // =============================
+// exports.login = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+
+//     let missingFields = [];
+//     if (!email) missingFields.push('Email is missing');
+//     if (!password) missingFields.push('Password is missing');
+
+//     if (missingFields.length > 0)
+//       return res.status(400).json({ message: missingFields.join(', ') });
+
+//     const user = await User.findOne({ email });
+//     if (!user)
+//       return res.status(400).json({ message: 'Invalid credentials' });
+
+//     // BLOCK LOGIN
+//     if (!user.isApproved) {
+//       return res.status(403).json({
+//         message: "Your account is pending approval. Please wait."
+//       });
+//     }
+
+//     const isMatch = await bcrypt.compare(password, user.password);
+//     if (!isMatch)
+//       return res.status(400).json({ message: 'Invalid credentials' });
+
+//     if (!user.firstLoginAt) user.firstLoginAt = new Date();
+//     user.lastLoginAt = new Date();
+//     user.isLoggedIn = true;
+//     await user.save();
+
+//     const token = jwt.sign(
+//       {
+//         userId: user._id,
+//         name: user.name,
+//         email: user.email,
+//         role: user.role
+//       },
+//       process.env.JWT_SECRET,
+//       { expiresIn: '9h' }
+//     );
+
+//     res.json({
+//       token,
+//       role: user.role,
+//       userId: user._id,
+//       name: user.name,
+//       message: 'Login successful'
+//     });
+
+//   } catch (err) {
+//     console.error("Login Error:", err);
+//     res.status(500).json({ message: 'Server error' });
+//   }
+// };
+
+
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    let missingFields = [];
-    if (!email) missingFields.push('Email is missing');
-    if (!password) missingFields.push('Password is missing');
-
-    if (missingFields.length > 0)
-      return res.status(400).json({ message: missingFields.join(', ') });
-
     const user = await User.findOne({ email });
     if (!user)
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ message: "Invalid credentials" });
 
-    // BLOCK LOGIN
+    // BLOCK LOGIN UNTIL APPROVED
     if (!user.isApproved) {
       return res.status(403).json({
-        message: "Your account is pending approval. Please wait."
+        message: "Your account is pending approval. Please wait for admin approval."
       });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch)
-      return res.status(400).json({ message: 'Invalid credentials' });
-
-    if (!user.firstLoginAt) user.firstLoginAt = new Date();
-    user.lastLoginAt = new Date();
-    user.isLoggedIn = true;
-    await user.save();
+      return res.status(400).json({ message: "Invalid credentials" });
 
     const token = jwt.sign(
-      {
-        userId: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      },
+      { userId: user._id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '9h' }
+      { expiresIn: "9h" }
     );
 
     res.json({
       token,
-      role: user.role,
       userId: user._id,
       name: user.name,
-      message: 'Login successful'
+      role: user.role,
+      message: "Login successful"
     });
 
   } catch (err) {
-    console.error("Login Error:", err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Login error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
