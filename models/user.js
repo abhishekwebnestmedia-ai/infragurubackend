@@ -25,33 +25,7 @@ const userSchema = new mongoose.Schema({
   passwordResetToken: { type: String },
   passwordResetExpires: { type: Date },
   
-  //  permissions: {
-  //   // Core / Access Control
-  //   superAdmin: { type: Boolean, default: false },
-
-  //   // Main Menu Access
-  //   dashboard: { type: Boolean, default: false },
-  //   dailyPlans: { type: Boolean, default: false },
-  //   allLeads: { type: Boolean, default: false },
-  //   inventory: { type: Boolean, default: false },
-  //   projectsWorking: { type: Boolean, default: false },
-  //   brokersRequirements: { type: Boolean, default: false },
-  //   myTeam: { type: Boolean, default: false },
-  //   findOpportunity: { type: Boolean, default: false },
-  //   learnGrow: { type: Boolean, default: false },
-  //   dataBase: { type: Boolean, default: false },
-
-  //   // Leads Section (Sub Permissions)
-  //   rentalLeads: { type: Boolean, default: false },
-  //   buyerLeads: { type: Boolean, default: false },
-  //   deadLeads: { type: Boolean, default: false },
-  //   completedLeads: { type: Boolean, default: false },
-
-  //   // Inventory Section (Sub Permissions)
-  //   rentalInventory: { type: Boolean, default: false },
-  //   saleInventory: { type: Boolean, default: false },
-  //   completedInventory: { type: Boolean, default: false }
-  // }
+ isApproved: { type: Boolean, default: false },
 
   permissions: {
 

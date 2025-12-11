@@ -58,7 +58,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Root Route
 app.get('/', (req, res) => {
-  res.send('✅ CRM backend server running successfully!');
+  res.send(' webnestinfraCRM backend server running successfully!');
 });
 
 // -------------------------
