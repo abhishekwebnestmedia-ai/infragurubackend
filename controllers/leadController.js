@@ -47,40 +47,6 @@ function validateLeadData(data, isUpdate = false) {
   return null;
 }
 
-// ================= CREATE LEAD =================
-// exports.createLead = async (req, res) => {
-//   try {
-//     const errorMsg = validateLeadData(req.body);
-//     if (errorMsg) return res.status(400).json({ success: false, message: errorMsg });
-
-//     const { assignedTo, transferTo, capturedBy, ...leadData } = req.body;
-
-//     const existingLead = await Lead.findOne({
-//       email: leadData.email,
-//       contactNumber: leadData.contactNumber
-//     });
-//     if (existingLead) return res.status(400).json({ success: false, message: "Lead with same email & contact exists" });
-
-//     const assignedUser = await resolveUser(assignedTo);
-//     const transferUser = await resolveUser(transferTo);
-//     const capturedUser = await resolveUser(capturedBy);
-
-//     const lead = new Lead({
-//       ...leadData,
-//       assignedTo: assignedUser?._id || null,
-//       transferTo: transferUser?._id || null,
-//       capturedBy: capturedUser?._id || null
-//     });
-
-//     await lead.save();
-//     const populatedLead = await lead.populate("assignedTo transferTo capturedBy", "name email");
-//     res.status(201).json({ success: true, data: populatedLead });
-
-//   } catch (err) {
-//     console.error("createLead error:", err);
-//     res.status(500).json({ success: false, message: "Server error creating lead" });
-//   }
-// };
 
 
 exports.createLead = async (req, res) => {
@@ -139,7 +105,7 @@ exports.createLead = async (req, res) => {
           type: "Lead",
           itemId: lead._id,
           message: msg,
-          category: "followup",
+          category: "followUp",
           changedBy: req.user ? req.user.name : "System",
         });
 
