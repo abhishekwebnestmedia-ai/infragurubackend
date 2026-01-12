@@ -10,7 +10,7 @@ const validStatuses = [
       "Closer",
 ];
 
-const validSources = ["Meta", "Google", "Referral", "Website", "Walk-in", "Other", "99acres"];
+const validSources = ["Meta", "Google", "Referral", "Website", "Facebook", "Walk-in", "Other", "99acres"];
 
 // ✅ Helper to generate IST date
 function getISTDate() {
