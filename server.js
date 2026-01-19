@@ -50,6 +50,7 @@ app.use(morgan('dev'));
 // -------------------------
 app.use('/api/auth', require('./routes/authroutes'));
 app.use('/api/groups', require('./routes/grouproute'));
+app.use('/api/inventory', require('./routes/inventoryRoutes'));
 app.use('/api/broadcasts', require('./routes/broadcastroute'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/lead', require('./routes/leadroute'));
