@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const authMiddleware = require("../middleware/authmiddleware");
 
 const {
   createInventory,
@@ -9,11 +10,18 @@ const {
   deleteInventory,
 } = require("../controllers/inventoryController");
 
-// CRUD Routes
-router.post("/", createInventory);          // Create
-router.get("/", getInventories);            // List + filters
-router.get("/:id", getInventoryById);       // Single
-router.put("/:id", updateInventory);        // Update
-router.delete("/:id", deleteInventory);     // Delete
+// PUBLIC routes
+router.get("/",authMiddleware, getInventories);
+router.get("/:id",authMiddleware, getInventoryById);
+
+// PROTECTED routes
+router.post("/", authMiddleware, createInventory);
+router.put("/:id", authMiddleware, updateInventory);
+router.delete("/:id", authMiddleware, deleteInventory);
 
 module.exports = router;
+
+
+
+
+
