@@ -11,6 +11,7 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "http": "^0.0.1-security",
@@ -21,7 +22,8 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.6",
     "path": "^0.12.7",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
