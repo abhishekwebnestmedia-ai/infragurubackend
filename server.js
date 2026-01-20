@@ -14,6 +14,9 @@ const path = require('path');
 const Broadcast = require('./models/broadcast');
 const Group = require('./models/group');
 
+const summaryRoutes = require("./routes/summaryRoutes");
+
+
 // ✅ Load environment variables and connect DB
 dotenv.config();
 connectDB();
@@ -57,6 +60,7 @@ app.use('/api/lead', require('./routes/leadroute'));
 app.use('/api/projects', require('./routes/projectRoutes'));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+app.use("/api/dashboard", summaryRoutes);
 // Root Route
 app.get('/', (req, res) => {
   res.send(' webnestinfraCRM backend server running successfully!');
