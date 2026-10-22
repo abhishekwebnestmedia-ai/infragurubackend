@@ -22,7 +22,6 @@ dotenv.config();
 connectDB();
 
 const app = express();
-console.log('🔗 MONGO_URI:', process.env.MONGO_URI);
 
 // -------------------------
 // ✅ CORS Configuration
@@ -254,7 +253,6 @@ function startServer(port) {
 }
 
 startServer(PORT);
-
 
 
 
