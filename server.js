@@ -29,7 +29,11 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:3001',
   'https://nesthubi.webnestmedia.online',
-  'https://nesthub.webnestmedia.online/',
+  'https://nesthub.webnestmedia.online',
+  'https://infraguru.vercel.app',
+  ...(process.env.FRONTEND_URL
+    ? [new URL(process.env.FRONTEND_URL).origin]
+    : []),
 ];
 
 app.use(
@@ -253,6 +257,5 @@ function startServer(port) {
 }
 
 startServer(PORT);
-
 
 
